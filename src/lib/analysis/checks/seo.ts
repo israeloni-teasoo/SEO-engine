@@ -367,6 +367,93 @@ export function seoChecks(
     }
   }
 
+  // Secondary / search keyphrases ---------------------------------------------
+  {
+    const secondary = (input.secondaryKeyphrases ?? [])
+      .map((k) => k.trim())
+      .filter(Boolean);
+    if (secondary.length > 0) {
+      const missing = secondary.filter(
+        (k) => countPhraseOccurrences(parsed.text, k) === 0,
+      );
+      let status: CheckResult["status"];
+      let message: string;
+      if (missing.length === 0) {
+        status = "good";
+        message = `All ${secondary.length} secondary keyphrase(s) appear in the content.`;
+      } else if (missing.length < secondary.length) {
+        status = "ok";
+        message = `Some secondary keyphrases are missing from the body: ${missing.join(", ")}.`;
+      } else {
+        status = "bad";
+        message = `None of your secondary keyphrases appear in the content: ${missing.join(", ")}.`;
+      }
+      checks.push({
+        id: "secondary-keyphrases",
+        category: "seo",
+        label: "Secondary keyphrases",
+        weight: 1,
+        aiFixable: true,
+        status,
+        message,
+      });
+    }
+  }
+
+  // Tags -----------------------------------------------------------------------
+  {
+    const tags = (input.tags ?? []).map((t) => t.trim()).filter(Boolean);
+    const { min, max } = THRESHOLDS.tags;
+    let status: CheckResult["status"];
+    let message: string;
+    if (tags.length === 0) {
+      status = "ok";
+      message = `No tags set. Add ${min}-${max} focused tags to group related posts.`;
+    } else if (tags.length > max) {
+      status = "ok";
+      message = `${tags.length} tags is a lot — too many creates thin tag pages. Keep it to ${min}-${max}.`;
+    } else {
+      status = "good";
+      message = `${tags.length} tag(s) — a focused set.`;
+    }
+    checks.push({
+      id: "tags",
+      category: "seo",
+      label: "Tags",
+      weight: 0.5,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
+
+  // Category -------------------------------------------------------------------
+  {
+    const cats = (input.categories ?? []).map((c) => c.trim()).filter(Boolean);
+    const { min, max } = THRESHOLDS.categories;
+    let status: CheckResult["status"];
+    let message: string;
+    if (cats.length < min) {
+      status = "bad";
+      message = "No category selected. Assign the post to a primary category.";
+    } else if (cats.length > max) {
+      status = "ok";
+      message = `${cats.length} categories — consider narrowing to a primary one plus tags.`;
+    } else {
+      status = "good";
+      message = `Filed under ${cats.join(", ")}.`;
+    }
+    checks.push({
+      id: "category",
+      category: "seo",
+      label: "Category",
+      weight: 0.5,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
+
   return checks;
 }
 

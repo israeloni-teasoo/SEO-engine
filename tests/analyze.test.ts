@@ -59,6 +59,36 @@ describe("analyze", () => {
     expect(r.metrics.keyphraseDensity).not.toBeNull();
   });
 
+  it("scores tags, category, and secondary keyphrases", () => {
+    const r = analyze({
+      ...goodPost,
+      tags: ["remote work", "productivity"],
+      categories: ["Team Management"],
+      secondaryKeyphrases: ["async habits"],
+    });
+    expect(r.checks.find((c) => c.id === "tags")?.status).toBe("good");
+    expect(r.checks.find((c) => c.id === "category")?.status).toBe("good");
+    // "async habits" appears in the body -> good.
+    expect(r.checks.find((c) => c.id === "secondary-keyphrases")?.status).toBe("good");
+    expect(r.metrics.tagCount).toBe(2);
+    expect(r.metrics.categoryCount).toBe(1);
+  });
+
+  it("flags a missing category and missing secondary keyphrases", () => {
+    const r = analyze({
+      ...goodPost,
+      categories: [],
+      secondaryKeyphrases: ["nonexistent phrase here"],
+    });
+    expect(r.checks.find((c) => c.id === "category")?.status).toBe("bad");
+    expect(r.checks.find((c) => c.id === "secondary-keyphrases")?.status).toBe("bad");
+  });
+
+  it("omits the secondary-keyphrases check when none are provided", () => {
+    const r = analyze({ ...goodPost, secondaryKeyphrases: [] });
+    expect(r.checks.find((c) => c.id === "secondary-keyphrases")).toBeUndefined();
+  });
+
   it("parses HTML input equivalently to markdown", () => {
     const html = analyze({
       ...goodPost,

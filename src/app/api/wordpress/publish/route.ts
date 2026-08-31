@@ -1,18 +1,34 @@
 import { NextResponse } from "next/server";
-import { createPost, WordPressError } from "@/lib/wordpress/client";
-import type { WordPressCredentials, CreatePostInput } from "@/lib/wordpress/client";
+import {
+  createPost,
+  resolveTerms,
+  WordPressError,
+} from "@/lib/wordpress/client";
+import type {
+  WordPressCredentials,
+  CreatePostInput,
+  SeoMeta,
+} from "@/lib/wordpress/client";
 import { toHtml } from "@/lib/markdown";
+import { submitUrls, hostFromUrl } from "@/lib/indexing/indexnow";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
 interface PublishBody extends Partial<WordPressCredentials> {
   title?: string;
+  seoTitle?: string;
   content?: string;
   metaDescription?: string;
+  focusKeyphrase?: string;
+  secondaryKeyphrases?: string[];
   slug?: string;
+  tags?: string[];
+  categories?: string[];
   status?: CreatePostInput["status"];
   date?: string;
+  /** Ping IndexNow after a public publish (needs an IndexNow key configured). */
+  pingIndexNow?: boolean;
 }
 
 export async function POST(req: Request) {
@@ -43,6 +59,25 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Resolve tag/category names to term IDs (creating any that don't exist).
+    const [tagIds, categoryIds] = await Promise.all([
+      body.tags?.length ? resolveTerms(creds, "tags", body.tags) : Promise.resolve([]),
+      body.categories?.length
+        ? resolveTerms(creds, "categories", body.categories)
+        : Promise.resolve([]),
+    ]);
+
+    const meta: SeoMeta = {};
+    if (body.seoTitle || body.title) meta.seo_engine_title = body.seoTitle || body.title;
+    if (body.metaDescription) meta.seo_engine_description = body.metaDescription;
+    if (body.focusKeyphrase) meta.seo_engine_focus_keyphrase = body.focusKeyphrase;
+    if (body.secondaryKeyphrases?.length) {
+      meta.seo_engine_secondary_keyphrases = body.secondaryKeyphrases
+        .map((k) => k.trim())
+        .filter(Boolean)
+        .join(",");
+    }
+
     const post = await createPost(creds, {
       title: body.title,
       content: toHtml(body.content),
@@ -50,8 +85,20 @@ export async function POST(req: Request) {
       slug: body.slug || undefined,
       excerpt: body.metaDescription || undefined,
       date: body.date || undefined,
+      tags: tagIds,
+      categories: categoryIds,
+      meta,
     });
-    return NextResponse.json({ ok: true, post });
+
+    // Optionally notify IndexNow when the post went live publicly.
+    let indexNow = null;
+    const key = process.env.INDEXNOW_KEY;
+    if (body.pingIndexNow && post.status === "publish" && key && post.link) {
+      const host = process.env.INDEXNOW_HOST || hostFromUrl(post.link);
+      indexNow = await submitUrls(host, key, [post.link]);
+    }
+
+    return NextResponse.json({ ok: true, post, indexNow });
   } catch (e) {
     const status = e instanceof WordPressError ? e.status || 502 : 500;
     return NextResponse.json({ error: (e as Error).message }, { status });

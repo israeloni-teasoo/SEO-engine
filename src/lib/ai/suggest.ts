@@ -45,8 +45,11 @@ export async function getSuggestions(
     {
       title: input.title,
       focusKeyphrase: input.focusKeyphrase ?? null,
+      secondaryKeyphrases: input.secondaryKeyphrases ?? [],
       metaDescription: input.metaDescription ?? null,
       slug: input.slug ?? null,
+      tags: input.tags ?? [],
+      categories: input.categories ?? [],
       scores: {
         overall: analysis.overallScore,
         seo: analysis.seoScore,

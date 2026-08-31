@@ -33,6 +33,10 @@ export const THRESHOLDS = {
   wordCount: { min: 300, good: 600, excellent: 900 },
   // Slug length in characters and max stop words allowed.
   slug: { maxChars: 75, maxStopWords: 2 },
+  // Tag count: a couple of focused tags help; a wall of tags creates thin archives.
+  tags: { min: 2, max: 8 },
+  // Categories: pick a primary category; too many dilutes the taxonomy.
+  categories: { min: 1, max: 3 },
 } as const;
 
 // Stop words removed from an ideal URL slug (kept short & keyword-focused).

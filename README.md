@@ -11,23 +11,44 @@ It combines two engines:
    instant, explainable score with a green/orange/red breakdown — no API key,
    no cost, fully offline.
 2. **An AI layer (Claude)** that reads the draft plus the rule results and either
-   suggests prioritized, concrete edits or rewrites the post in one click.
+   suggests prioritized, concrete edits, rewrites the post in one click, or
+   generates missing image alt text and a LinkedIn post.
 
-Then it publishes to WordPress over the REST API, so a post that's "good to go"
-never has to leave the tool.
+Then it publishes to **WordPress** over the REST API (with SEO meta, tags &
+categories) and cross-posts to **LinkedIn**, so a post that's "good to go" never
+has to leave the tool.
 
 ---
 
 ## What it checks
 
-22 checks across on-page SEO and readability — keyphrase placement (title, meta,
-intro, subheadings, slug, image alt), keyphrase density, SERP title-width in
-pixels, meta-description length, content length, internal/outbound links, image
-alt coverage, Flesch reading ease, sentence & paragraph length, subheading
-distribution, passive voice, transition words, and more.
+25+ checks across on-page SEO and readability — keyphrase placement (title, meta,
+intro, subheadings, slug, image alt), secondary/"search" keyphrases, keyphrase
+density, SERP title-width in pixels, meta-description length, content length,
+internal/outbound links, image alt coverage, tags & category, Flesch reading
+ease, sentence & paragraph length, subheading distribution, passive voice,
+transition words, and more.
 
 **The full criteria, thresholds, and the research/sources behind them are in
 [`docs/SEO-CRITERIA.md`](docs/SEO-CRITERIA.md).**
+
+## Features
+
+- **Live SEO + readability score** with a green/orange/red checklist.
+- **Focus keyphrase, secondary keyphrases, tags, and category** all analyzed.
+- **AI suggestions** and **one-click auto-fix** (rewrites the body, meta, title,
+  slug, and proposes tags/category/secondary keyphrases).
+- **AI alt-text generation** for images that are missing it (uses Claude vision
+  for public image URLs).
+- **Publish to WordPress** with SEO meta written into **Yoast, Rank Math, or All
+  in One SEO** (via the bundled bridge plugin), plus auto-created tags/categories.
+- **LinkedIn**: connect via OAuth, generate a native post from the article, and
+  publish to your profile or company page.
+- **Instant indexing** via IndexNow on publish (Bing/Yandex/etc.).
+
+**New here? Read [`docs/SETUP.md`](docs/SETUP.md) — it lists exactly what to
+provide (keys, plugin, LinkedIn app) and how to deploy to Vercel + a custom
+domain.**
 
 ---
 
@@ -82,13 +103,15 @@ SEO Engine authenticates with **Application Passwords** (built into WordPress
 3. In the publish dialog (or `.env`), enter your **site URL**, **username**, and
    that **application password**.
 
-The post is created via `POST /wp-json/wp/v2/posts`. The meta description is sent
-as the post excerpt; you can wire it to a specific SEO plugin's fields later
-(see "Extending" below).
+The post is created via `POST /wp-json/wp/v2/posts` with tags and categories
+(created by name automatically).
 
-> **Heads up on meta descriptions:** WordPress core has no native "meta
-> description" field. If you use Yoast/Rank Math, set their REST meta keys in
-> `src/lib/wordpress/client.ts` to push the description into the plugin.
+> **SEO meta needs the bridge plugin.** Yoast, Rank Math, and All in One SEO all
+> hide their fields from the REST API by default. Install the bundled
+> [`wordpress-plugin/seo-engine-bridge.php`](wordpress-plugin/seo-engine-bridge.php)
+> (a one-file mu-plugin) and the SEO title, meta description, focus keyphrase, and
+> secondary keyphrases are written into whichever plugin you use. Full steps in
+> [`docs/SETUP.md`](docs/SETUP.md).
 
 ---
 
@@ -108,10 +131,16 @@ src/
     ai/              # Claude integration
       suggest.ts     #   prioritized suggestions
       autofix.ts     #   one-click rewrite (streamed)
-    wordpress/       # WordPress REST client (Application Passwords)
+      alt-text.ts    #   vision-based image alt-text generation
+      linkedin-post.ts #  adapt an article into a LinkedIn post
+    wordpress/       # WordPress REST client (Application Passwords, meta, terms)
+    linkedin/        # LinkedIn OAuth + Posts API client
+    indexing/        # IndexNow submission
   app/
-    page.tsx         # the editor + live score UI
+    page.tsx         # the editor + live score UI + LinkedIn panel
     api/             # thin API routes over the libs
+wordpress-plugin/
+  seo-engine-bridge.php  # companion mu-plugin: maps SEO meta to Yoast/RankMath/AIOSEO
 ```
 
 The rule engine is intentionally framework-free — you can import `analyze()`
@@ -121,13 +150,11 @@ into a CLI, a cron job, or a CI check without pulling in Next.js.
 
 ## Roadmap / extending
 
-- **LinkedIn publishing.** Designed for a second phase: LinkedIn requires
-  creating a LinkedIn developer app and OAuth review before the
-  `/rest/posts` API can be used, so it isn't in v1. The analysis already covers
-  the hook/readability signals that matter for LinkedIn reach.
-- **SEO-plugin meta fields.** Push meta title/description into Yoast or Rank Math
-  via their registered REST meta.
-- **Media upload.** Upload and attach a featured image during publish.
+- **Featured image upload.** Upload and attach a featured image during publish.
+- **Scheduling.** Queue posts for a future publish date (WordPress `future`
+  status is already supported by the client).
+- **Company-page posting.** Works once your LinkedIn app's Community Management
+  API access is approved (see `docs/SETUP.md`).
 - **Batch mode.** Run `analyze()` over a folder of drafts in CI and fail the
   build on low scores.
 
