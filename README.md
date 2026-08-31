@@ -45,6 +45,11 @@ transition words, and more.
 - **LinkedIn**: connect via OAuth, generate a native post from the article, and
   publish to your profile or company page.
 - **Instant indexing** via IndexNow on publish (Bing/Yandex/etc.).
+- **Multi-user mode (optional):** staff sign in with **Google or email/password**,
+  with **Admin / Editor / Author** roles and an approval workflow (authors submit,
+  editors publish). WordPress is a shared company connection; each user connects
+  their own LinkedIn. Off by default — turn it on by setting `DATABASE_URL` +
+  `AUTH_SECRET`. See [`docs/SETUP.md`](docs/SETUP.md).
 
 **New here? Read [`docs/SETUP.md`](docs/SETUP.md) — it lists exactly what to
 provide (keys, plugin, LinkedIn app) and how to deploy to Vercel + a custom

@@ -10,17 +10,22 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:setup": "node scripts/db-setup.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.122.0",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.10",
     "marked": "^18.0.11",
     "next": "^14.2.35",
     "node-html-parser": "^9.0.2",
+    "postgres": "^3.4.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "@types/node": "^26.4.0",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",

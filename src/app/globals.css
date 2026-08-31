@@ -418,3 +418,124 @@ select:focus {
 .diff-changes li {
   margin-bottom: 3px;
 }
+
+/* --- Auth / nav / admin additions --- */
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 500;
+}
+.nav a:hover {
+  color: var(--text);
+}
+.usermenu {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.role-badge {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+}
+.role-badge.admin { color: #f0a; border-color: rgba(255,0,170,0.4); }
+.role-badge.editor { color: var(--accent); border-color: rgba(59,130,246,0.4); }
+.role-badge.author { color: var(--good); border-color: rgba(46,160,67,0.4); }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.table th, .table td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.table th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.table select, .table input {
+  padding: 5px 8px;
+  font-size: 12px;
+}
+
+.status-pill {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border: 1px solid var(--border);
+}
+.status-pill.draft { color: var(--muted); }
+.status-pill.in_review { color: var(--ok); border-color: rgba(210,153,34,0.4); }
+.status-pill.published { color: var(--good); border-color: rgba(46,160,67,0.4); }
+
+.auth-wrap {
+  max-width: 380px;
+  margin: 8vh auto;
+  padding: 0 20px;
+}
+.auth-card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px;
+  box-shadow: var(--shadow);
+}
+.auth-card h1 { font-size: 18px; margin: 0 0 4px; }
+.auth-tabs { display: flex; gap: 6px; margin-bottom: 18px; }
+.auth-tabs button {
+  flex: 1;
+  padding: 8px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.auth-tabs button.active { color: var(--text); border-color: var(--accent); }
+.divider {
+  text-align: center;
+  color: var(--muted);
+  font-size: 11px;
+  margin: 16px 0;
+  position: relative;
+}
+.divider::before, .divider::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: var(--border);
+}
+.divider::before { left: 0; }
+.divider::after { right: 0; }
+.btn.google {
+  width: 100%;
+  justify-content: center;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  text-align: center;
+}
+.page { max-width: 1000px; margin: 0 auto; padding: 20px 24px; }
