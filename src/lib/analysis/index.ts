@@ -85,6 +85,12 @@ export function analyze(input: AnalysisInput): AnalysisResult {
       internalLinkCount: parsed.links.filter((l) => l.internal).length,
       outboundLinkCount: parsed.links.filter((l) => !l.internal).length,
       imageCount: parsed.images.length,
+      imagesMissingAlt: parsed.images.filter((i) => !i.alt).length,
+      tagCount: (input.tags ?? []).filter((t) => t.trim()).length,
+      categoryCount: (input.categories ?? []).filter((c) => c.trim()).length,
+      secondaryKeyphraseCount: (input.secondaryKeyphrases ?? []).filter((k) =>
+        k.trim(),
+      ).length,
     },
     parsed,
   };

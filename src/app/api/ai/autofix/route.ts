@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyze } from "@/lib/analysis/index";
-import type { AnalysisInput } from "@/lib/analysis/types";
+import { buildAnalysisInput } from "@/lib/analysis/input";
 import { autoFix } from "@/lib/ai/autofix";
 import { aiConfigured, MissingApiKeyError } from "@/lib/ai/client";
 
@@ -15,22 +15,14 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: Partial<AnalysisInput>;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const input: AnalysisInput = {
-    title: body.title ?? "",
-    content: body.content ?? "",
-    metaDescription: body.metaDescription ?? "",
-    focusKeyphrase: body.focusKeyphrase ?? "",
-    slug: body.slug ?? "",
-    siteDomain: body.siteDomain || process.env.SITE_DOMAIN || undefined,
-  };
-
+  const input = buildAnalysisInput(body);
   if (!input.content.trim()) {
     return NextResponse.json({ error: "Nothing to fix — content is empty." }, { status: 400 });
   }
@@ -44,13 +36,20 @@ export async function POST(req: Request) {
       content: fixed.content,
       metaDescription: fixed.metaDescription,
       focusKeyphrase: fixed.focusKeyphrase,
+      secondaryKeyphrases: fixed.secondaryKeyphrases,
       slug: fixed.slug,
+      tags: fixed.tags,
+      categories: fixed.categories,
       siteDomain: input.siteDomain,
     });
     const { parsed: _p, ...afterLean } = after;
     return NextResponse.json({
       fixed,
-      before: { overallScore: analysis.overallScore, seoScore: analysis.seoScore, readabilityScore: analysis.readabilityScore },
+      before: {
+        overallScore: analysis.overallScore,
+        seoScore: analysis.seoScore,
+        readabilityScore: analysis.readabilityScore,
+      },
       after: afterLean,
     });
   } catch (e) {

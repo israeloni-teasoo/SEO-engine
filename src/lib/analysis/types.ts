@@ -29,7 +29,17 @@ export interface AnalysisInput {
   content: string;
   metaDescription?: string;
   focusKeyphrase?: string;
+  /**
+   * Additional keyphrases / "search keywords" the post should also rank for
+   * (Yoast Premium calls these related keyphrases). Each should appear at least
+   * once in the body.
+   */
+  secondaryKeyphrases?: string[];
   slug?: string;
+  /** Post tags (WordPress tag terms). */
+  tags?: string[];
+  /** Post categories (WordPress category terms); the first is treated as primary. */
+  categories?: string[];
   /** Bare domain (e.g. "example.com") used to classify internal vs external links. */
   siteDomain?: string;
 }
@@ -72,6 +82,10 @@ export interface AnalysisResult {
     internalLinkCount: number;
     outboundLinkCount: number;
     imageCount: number;
+    imagesMissingAlt: number;
+    tagCount: number;
+    categoryCount: number;
+    secondaryKeyphraseCount: number;
   };
   parsed: ParsedContent;
 }

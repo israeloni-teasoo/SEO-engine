@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "functions": {
+    "src/app/api/ai/autofix/route.ts": { "maxDuration": 300 },
+    "src/app/api/ai/suggest/route.ts": { "maxDuration": 120 },
+    "src/app/api/ai/alt-text/route.ts": { "maxDuration": 120 },
+    "src/app/api/ai/linkedin-draft/route.ts": { "maxDuration": 60 }
+  }
+}

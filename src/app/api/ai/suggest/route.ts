@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { analyze } from "@/lib/analysis/index";
-import type { AnalysisInput } from "@/lib/analysis/types";
+import { buildAnalysisInput } from "@/lib/analysis/input";
 import { getSuggestions } from "@/lib/ai/suggest";
 import { aiConfigured, MissingApiKeyError } from "@/lib/ai/client";
 
@@ -15,21 +15,14 @@ export async function POST(req: Request) {
     );
   }
 
-  let body: Partial<AnalysisInput>;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const input: AnalysisInput = {
-    title: body.title ?? "",
-    content: body.content ?? "",
-    metaDescription: body.metaDescription ?? "",
-    focusKeyphrase: body.focusKeyphrase ?? "",
-    slug: body.slug ?? "",
-    siteDomain: body.siteDomain || process.env.SITE_DOMAIN || undefined,
-  };
+  const input = buildAnalysisInput(body);
 
   try {
     const analysis = analyze(input);

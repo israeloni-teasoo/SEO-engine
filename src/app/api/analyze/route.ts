@@ -1,28 +1,19 @@
 import { NextResponse } from "next/server";
 import { analyze } from "@/lib/analysis/index";
-import type { AnalysisInput } from "@/lib/analysis/types";
+import { buildAnalysisInput } from "@/lib/analysis/input";
 
 export const runtime = "nodejs";
 
 export async function POST(req: Request) {
-  let body: Partial<AnalysisInput>;
+  let body: Record<string, unknown>;
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const input: AnalysisInput = {
-    title: body.title ?? "",
-    content: body.content ?? "",
-    metaDescription: body.metaDescription ?? "",
-    focusKeyphrase: body.focusKeyphrase ?? "",
-    slug: body.slug ?? "",
-    siteDomain: body.siteDomain || process.env.SITE_DOMAIN || undefined,
-  };
-
   try {
-    const result = analyze(input);
+    const result = analyze(buildAnalysisInput(body));
     // Omit the heavy `parsed` blob from the wire response.
     const { parsed: _parsed, ...lean } = result;
     return NextResponse.json(lean);

@@ -6,6 +6,9 @@ export interface AutoFixResult {
   metaDescription: string;
   slug: string;
   focusKeyphrase: string;
+  secondaryKeyphrases: string[];
+  tags: string[];
+  categories: string[];
   /** Rewritten body in the SAME format (Markdown or HTML) as the input. */
   content: string;
   /** Human-readable list of the edits that were made. */
@@ -27,12 +30,19 @@ Rules:
   120-158 characters and invite the click.
 - Only change what improves the post. Do not pad word count with fluff.
 
+- Suggest 3-8 relevant tags and 1 primary category if none are provided.
+- Suggest 2-4 secondary keyphrases (related search terms) and make sure each
+  appears at least once in the rewritten body.
+
 Respond with ONLY a JSON object (no prose, no code fence):
 {
   "title": "...",
   "metaDescription": "...",
   "slug": "kebab-case-slug",
   "focusKeyphrase": "...",
+  "secondaryKeyphrases": ["...", "..."],
+  "tags": ["...", "..."],
+  "categories": ["Primary Category"],
   "content": "the full rewritten body in the original format",
   "changes": ["short description of each notable edit"]
 }`;
@@ -52,9 +62,12 @@ export async function autoFix(
 
   const brief = [
     `Focus keyphrase: ${input.focusKeyphrase || "(none — choose the best one for this post)"}`,
+    `Secondary keyphrases: ${(input.secondaryKeyphrases ?? []).join(", ") || "(none — suggest some)"}`,
     `Current SEO title: ${input.title || "(none)"}`,
     `Current meta description: ${input.metaDescription || "(none)"}`,
     `Current slug: ${input.slug || "(none)"}`,
+    `Current tags: ${(input.tags ?? []).join(", ") || "(none — suggest some)"}`,
+    `Current categories: ${(input.categories ?? []).join(", ") || "(none — suggest one)"}`,
     "",
     "Issues to fix:",
     issueSummary(analysis.checks) || "- (general polish)",
@@ -74,11 +87,16 @@ export async function autoFix(
   const response = await stream.finalMessage();
 
   const parsed = extractJson<Partial<AutoFixResult>>(textOf(response.content));
+  const arr = (v: unknown, fallback: string[]) =>
+    Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : fallback;
   return {
     title: parsed.title ?? input.title,
     metaDescription: parsed.metaDescription ?? input.metaDescription ?? "",
     slug: parsed.slug ?? input.slug ?? "",
     focusKeyphrase: parsed.focusKeyphrase ?? input.focusKeyphrase ?? "",
+    secondaryKeyphrases: arr(parsed.secondaryKeyphrases, input.secondaryKeyphrases ?? []),
+    tags: arr(parsed.tags, input.tags ?? []),
+    categories: arr(parsed.categories, input.categories ?? []),
     content: parsed.content ?? input.content,
     changes: Array.isArray(parsed.changes) ? parsed.changes : [],
   };

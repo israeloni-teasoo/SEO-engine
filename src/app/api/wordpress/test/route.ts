@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { testConnection, WordPressError } from "@/lib/wordpress/client";
+import { testConnection, bridgeStatus, WordPressError } from "@/lib/wordpress/client";
 import type { WordPressCredentials } from "@/lib/wordpress/client";
 
 export const runtime = "nodejs";
@@ -29,7 +29,8 @@ export async function POST(req: Request) {
   }
   try {
     const user = await testConnection(creds);
-    return NextResponse.json({ ok: true, user });
+    const bridge = await bridgeStatus(creds);
+    return NextResponse.json({ ok: true, user, bridge });
   } catch (e) {
     const status = e instanceof WordPressError ? e.status || 502 : 500;
     return NextResponse.json({ error: (e as Error).message }, { status });
