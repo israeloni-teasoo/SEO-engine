@@ -1,30 +1,27 @@
 import { NextResponse } from "next/server";
 import { getUserInfo, isConfigured } from "@/lib/linkedin/client";
+import { resolveLinkedIn } from "@/lib/linkedin/token";
 
 export const runtime = "nodejs";
 
-function tokenFrom(req: Request): string | null {
-  return (
-    req.headers.get("cookie")?.match(/(?:^|;\s*)li_access_token=([^;]+)/)?.[1] ?? null
-  );
-}
-
 export async function GET(req: Request) {
-  const token = tokenFrom(req);
-  if (!token) {
+  const resolved = await resolveLinkedIn(req).catch(() => null);
+  if (!resolved) {
     return NextResponse.json({ configured: isConfigured(), connected: false });
   }
   try {
-    const user = await getUserInfo(token);
+    // Confirm the token still works and get the member URN.
+    const user = resolved.sub
+      ? { sub: resolved.sub, name: resolved.name ?? undefined }
+      : await getUserInfo(resolved.accessToken);
     return NextResponse.json({
       configured: true,
       connected: true,
-      name: user.name ?? null,
+      name: user.name ?? resolved.name ?? null,
       memberUrn: `urn:li:person:${user.sub}`,
-      orgId: process.env.LINKEDIN_ORG_ID ?? null,
+      orgId: resolved.orgId,
     });
   } catch {
-    // Token expired or revoked.
     return NextResponse.json({ configured: isConfigured(), connected: false });
   }
 }

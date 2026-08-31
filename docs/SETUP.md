@@ -122,6 +122,66 @@ To enable IndexNow:
 
 ---
 
+## 6. Staff accounts (multi-user mode)
+
+By default the app is single-user (no login). To let your staff sign in with
+roles and an approval workflow, set **both** `AUTH_SECRET` and `DATABASE_URL`.
+With only one set, the app stays single-user (this prevents accidental lockout).
+
+### a. Database (Neon)
+
+1. Create a free Postgres database at <https://neon.tech> and copy its connection
+   string into `DATABASE_URL`.
+2. Apply the schema once: `DATABASE_URL=... npm run db:setup` (locally), or run it
+   against your production DB. It creates the `users`, `articles`,
+   `app_settings`, and `linkedin_connections` tables.
+
+### b. Secrets
+
+- `AUTH_SECRET` — signs the session cookie. Generate with `openssl rand -hex 32`.
+- `ENCRYPTION_KEY` — encrypts stored credentials (the shared WordPress app
+  password, LinkedIn tokens). Generate with `openssl rand -hex 32`. **Don't lose
+  it** — rotating it makes existing stored secrets unreadable.
+
+### c. First admin & sign-in
+
+- The **first account created becomes an admin**. You can also list admin emails
+  in `ADMIN_EMAILS` (comma-separated) so those users are admins on first sign-in.
+- Optionally restrict who can register with `ALLOWED_EMAIL_DOMAIN` (e.g.
+  `teasoo.com`), so only company emails can create accounts.
+- **Google sign-in** (optional): create OAuth credentials at Google Cloud →
+  APIs & Services → Credentials, add
+  `https://your-domain/api/auth/google/callback` as an authorized redirect URI,
+  and set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`. Both Google and
+  email/password work side by side.
+
+### d. Roles & workflow
+
+| Role | Can do |
+|---|---|
+| **Admin** | Everything: manage users & their roles, set the shared WordPress connection and company LinkedIn ID, write, and publish. |
+| **Editor** | Write, review the queue, and publish directly to WordPress. |
+| **Author** | Write and **submit for review**; an editor/admin approves & publishes. |
+
+Manage people under **Admin → Team members** (promote/demote, disable accounts).
+
+### e. Shared WordPress vs. per-user LinkedIn
+
+- **WordPress is shared:** an admin sets the company blog connection once under
+  **Admin → Shared WordPress connection**. All publishers use it (the app
+  password is encrypted at rest). Individual staff never enter WordPress
+  credentials.
+- **LinkedIn is per-user:** each staff member clicks **Connect LinkedIn** in the
+  Distribute panel and authorizes their own account; their token is stored
+  encrypted against their user. Company-page posting uses the shared
+  `LINKEDIN_ORG_ID` and each connected user's authorization.
+
+> Same article, both places: the editor holds one article. "Post to LinkedIn"
+> can **AI-adapt** it into a native post or post the **article as-is**
+> (headline + summary) — your choice, from the same draft.
+
+---
+
 ## Quick checklist
 
 | Feature | You provide | Required? |
@@ -133,3 +193,4 @@ To enable IndexNow:
 | Instant indexing | `INDEXNOW_KEY` + hosted key file | optional |
 | Post to LinkedIn profile | LinkedIn app + `w_member_social` | to post |
 | Post to LinkedIn company page | + `w_organization_social` (reviewed) + `LINKEDIN_ORG_ID` | to post to page |
+| **Staff accounts + roles** | `DATABASE_URL` + `AUTH_SECRET` + `ENCRYPTION_KEY` (+ Google optional) | for multi-user |
