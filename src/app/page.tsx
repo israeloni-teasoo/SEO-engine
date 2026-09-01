@@ -2,87 +2,37 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppHeader from "./components/AppHeader";
+import RichEditor from "./components/RichEditor";
 import { useMe, canPublishRole } from "./components/useMe";
 
 type Status = "good" | "ok" | "bad";
 
 interface CheckResult {
-  id: string;
-  category: "seo" | "readability";
-  label: string;
-  status: Status;
-  message: string;
-  aiFixable: boolean;
+  id: string; category: "seo" | "readability"; label: string;
+  status: Status; message: string; aiFixable: boolean;
 }
-
 interface Metrics {
-  wordCount: number;
-  fleschReadingEase: number;
-  keyphraseDensity: number | null;
-  keyphraseCount: number | null;
-  titleWidthPx: number;
-  internalLinkCount: number;
-  outboundLinkCount: number;
-  imageCount: number;
-  imagesMissingAlt: number;
-  tagCount: number;
-  categoryCount: number;
+  wordCount: number; fleschReadingEase: number; keyphraseDensity: number | null;
+  titleWidthPx: number; imageCount: number; imagesMissingAlt: number;
+  tagCount: number; categoryCount: number;
 }
-
 interface Analysis {
-  checks: CheckResult[];
-  readabilityScore: number;
-  seoScore: number;
-  overallScore: number;
-  metrics: Metrics;
+  checks: CheckResult[]; readabilityScore: number; seoScore: number;
+  overallScore: number; metrics: Metrics;
 }
-
-interface Suggestion {
-  title: string;
-  detail: string;
-  priority: "high" | "medium" | "low";
-}
+interface Suggestion { title: string; detail: string; priority: "high" | "medium" | "low"; }
 
 interface Draft {
-  title: string;
-  content: string;
-  metaDescription: string;
-  focusKeyphrase: string;
-  secondaryKeyphrases: string;
-  slug: string;
-  tags: string;
-  categories: string;
+  title: string; content: string; metaDescription: string; focusKeyphrase: string;
+  secondaryKeyphrases: string; slug: string; tags: string; categories: string;
 }
-
 const EMPTY: Draft = {
   title: "", content: "", metaDescription: "", focusKeyphrase: "",
   secondaryKeyphrases: "", slug: "", tags: "", categories: "",
 };
 
-const EXAMPLE: Draft = {
-  title: "Remote Team Productivity: A Practical Guide",
-  focusKeyphrase: "remote team productivity",
-  secondaryKeyphrases: "async communication, distributed teams",
-  slug: "remote-team-productivity-guide",
-  tags: "remote work, productivity, management",
-  categories: "Team Management",
-  metaDescription:
-    "Boost remote team productivity with practical routines, the right tools, and async habits your team will actually stick to.",
-  content: `## Why remote team productivity is different
-
-Managing a distributed team is not the same as managing an office. The old signals are gone. Remote team productivity depends on clear systems, not proximity.
-
-## Set up async communication
-
-Write decisions down. Use a shared doc. Record short videos instead of scheduling another call.
-
-## Measure outcomes, not hours
-
-Track shipped work. Review it weekly. Celebrate progress in public so people feel seen.`,
-};
-
-const splitList = (s: string): string[] => s.split(",").map((x) => x.trim()).filter(Boolean);
-const joinList = (a?: string[] | null): string => (a ?? []).join(", ");
+const splitList = (s: string) => s.split(",").map((x) => x.trim()).filter(Boolean);
+const joinList = (a?: string[] | null) => (a ?? []).join(", ");
 const scoreClass = (n: number) => (n >= 75 ? "good-text" : n >= 50 ? "ok-text" : "bad-text");
 
 export default function Home() {
@@ -90,19 +40,20 @@ export default function Home() {
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [analysis, setAnalysis] = useState<Analysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
+  const [aiProvider, setAiProvider] = useState<string | null>(null);
 
   const [articleId, setArticleId] = useState<string | null>(null);
   const [articleStatus, setArticleStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [suggestLoading, setSuggestLoading] = useState(false);
   const [fixLoading, setFixLoading] = useState(false);
   const [altLoading, setAltLoading] = useState(false);
+  const [seoLoading, setSeoLoading] = useState(false);
   const [fixPreview, setFixPreview] = useState<null | {
-    fixed: Draft & { changes: string[] };
-    before: { overallScore: number };
-    after: Analysis;
+    fixed: Draft & { changes: string[] }; before: { overallScore: number }; after: Analysis;
   }>(null);
 
   const [publishOpen, setPublishOpen] = useState(false);
@@ -117,24 +68,20 @@ export default function Home() {
     slug: d.slug, tags: splitList(d.tags), categories: splitList(d.categories),
   }), []);
 
-  // Load a saved article when opened via /?id=...
   useEffect(() => {
+    fetch("/api/ai/status").then((r) => r.json()).then((d) => setAiProvider(d.provider)).catch(() => {});
     const id = new URLSearchParams(window.location.search).get("id");
     if (!id) return;
-    fetch(`/api/articles/${id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d?.article) return;
-        const a = d.article;
-        setDraft({
-          title: a.title, content: a.content, metaDescription: a.metaDescription,
-          focusKeyphrase: a.focusKeyphrase, secondaryKeyphrases: joinList(a.secondaryKeyphrases),
-          slug: a.slug, tags: joinList(a.tags), categories: joinList(a.categories),
-        });
-        setArticleId(a.id);
-        setArticleStatus(a.status);
-      })
-      .catch(() => {});
+    fetch(`/api/articles/${id}`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+      if (!d?.article) return;
+      const a = d.article;
+      setDraft({
+        title: a.title, content: a.content, metaDescription: a.metaDescription,
+        focusKeyphrase: a.focusKeyphrase, secondaryKeyphrases: joinList(a.secondaryKeyphrases),
+        slug: a.slug, tags: joinList(a.tags), categories: joinList(a.categories),
+      });
+      setArticleId(a.id); setArticleStatus(a.status);
+    }).catch(() => {});
   }, []);
 
   const runAnalyze = useCallback(async (d: Draft) => {
@@ -142,8 +89,7 @@ export default function Home() {
     setAnalyzing(true);
     try {
       const res = await fetch("/api/analyze", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload(d)),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(d)),
       });
       const data = await res.json();
       if (res.ok) setAnalysis(data as Analysis);
@@ -152,40 +98,47 @@ export default function Home() {
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => runAnalyze(draft), 500);
+    debounceRef.current = setTimeout(() => runAnalyze(draft), 600);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [draft, runAnalyze]);
 
-  useEffect(() => {
-    const p = new URLSearchParams(window.location.search);
-    const li = p.get("linkedin");
-    if (li === "connected") setBanner({ kind: "success", text: "LinkedIn connected. Post from the Distribute panel." });
-    else if (li === "error") setBanner({ kind: "error", text: `LinkedIn connection failed: ${p.get("reason") || "unknown"}` });
-  }, []);
+  async function generateSeo() {
+    setSeoLoading(true); setBanner(null);
+    try {
+      const res = await fetch("/api/seo/generate", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: draft.title, content: draft.content }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Could not generate SEO." }); return; }
+      const s = data.seo;
+      setDraft((d) => ({
+        ...d,
+        focusKeyphrase: s.focusKeyphrase || d.focusKeyphrase,
+        secondaryKeyphrases: joinList(s.secondaryKeyphrases) || d.secondaryKeyphrases,
+        tags: joinList(s.tags) || d.tags,
+        metaDescription: s.metaDescription || d.metaDescription,
+        slug: s.slug || d.slug,
+      }));
+      setBanner({ kind: "success", text: data.source === "ai" ? "SEO generated with AI." : "SEO generated (rule-based — add an AI key for higher quality)." });
+    } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
+    finally { setSeoLoading(false); }
+  }
 
   async function saveDraft(): Promise<string | null> {
-    setSaving(true);
-    setBanner(null);
+    setSaving(true); setBanner(null);
     try {
       const body = { ...payload(draft), overallScore: analysis?.overallScore ?? null };
       const res = await fetch(articleId ? `/api/articles/${articleId}` : "/api/articles", {
-        method: articleId ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        method: articleId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
       const data = await res.json();
       if (!res.ok) { setBanner({ kind: "error", text: data.error || "Save failed." }); return null; }
-      const id = data.article.id as string;
-      setArticleId(id);
-      setArticleStatus(data.article.status);
+      setArticleId(data.article.id); setArticleStatus(data.article.status);
       setBanner({ kind: "success", text: "Draft saved." });
-      return id;
-    } catch (e) {
-      setBanner({ kind: "error", text: (e as Error).message });
-      return null;
-    } finally {
-      setSaving(false);
-    }
+      return data.article.id;
+    } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); return null; }
+    finally { setSaving(false); }
   }
 
   async function submitForReview() {
@@ -201,9 +154,7 @@ export default function Home() {
   async function getSuggestions() {
     setSuggestLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/suggest", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)),
-      });
+      const res = await fetch("/api/ai/suggest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
       const data = await res.json();
       if (!res.ok) { setBanner({ kind: "error", text: data.error || "Could not get suggestions." }); return; }
       setSuggestions(data.suggestions as Suggestion[]);
@@ -214,9 +165,7 @@ export default function Home() {
   async function runAutoFix() {
     setFixLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/autofix", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)),
-      });
+      const res = await fetch("/api/ai/autofix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
       const data = await res.json();
       if (!res.ok) { setBanner({ kind: "error", text: data.error || "Auto-fix failed." }); return; }
       setFixPreview({
@@ -235,10 +184,7 @@ export default function Home() {
   async function generateAltText() {
     setAltLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/alt-text", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: draft.content, focusKeyphrase: draft.focusKeyphrase, title: draft.title }),
-      });
+      const res = await fetch("/api/ai/alt-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: draft.content, focusKeyphrase: draft.focusKeyphrase, title: draft.title }) });
       const data = await res.json();
       if (!res.ok) { setBanner({ kind: "error", text: data.error || "Alt text failed." }); return; }
       if ((data.generated ?? []).length === 0) { setBanner({ kind: "info", text: "No images were missing alt text." }); return; }
@@ -251,9 +197,7 @@ export default function Home() {
   function applyFix() {
     if (!fixPreview) return;
     const { changes: _c, ...rest } = fixPreview.fixed;
-    setDraft(rest);
-    setAnalysis(fixPreview.after);
-    setFixPreview(null);
+    setDraft(rest); setAnalysis(fixPreview.after); setFixPreview(null);
     setBanner({ kind: "success", text: "Applied the AI-optimized version." });
   }
 
@@ -261,81 +205,46 @@ export default function Home() {
   const readChecks = analysis?.checks.filter((c) => c.category === "readability") ?? [];
   const metaLen = draft.metaDescription.trim().length;
   const metaWarn = metaLen > 158 ? "bad" : metaLen > 0 && metaLen < 120 ? "warn" : "";
-  const titleWarn = analysis && analysis.metrics.titleWidthPx > 580 ? "bad" : analysis && analysis.metrics.titleWidthPx > 520 ? "warn" : "";
   const missingAlt = analysis?.metrics.imagesMissingAlt ?? 0;
-
-  // Publish permission: single-user mode allows it; multi-user needs editor+.
   const mayPublish = !authEnabled || canPublishRole(me?.role);
-  const hasContent = draft.title.trim() && draft.content.trim();
+  const hasContent = draft.title.trim() && draft.content.replace(/<[^>]*>/g, "").trim();
+  const tagList = splitList(draft.tags);
+
+  const removeTag = (t: string) => set("tags", tagList.filter((x) => x !== t).join(", "));
 
   return (
     <>
       <AppHeader me={me} authEnabled={authEnabled} active="editor" />
 
       <div className="layout">
+        {/* ---- Editor column ---- */}
         <div>
           {banner && <div className={`banner ${banner.kind}`}>{banner.text}</div>}
 
           <div className="card">
             <div className="card-header">
-              Post
-              <div className="btn-row">
+              Write
+              <div className="btn-row" style={{ alignItems: "center" }}>
+                {uploading && <span className="provider-note"><span className="spinner" /> uploading image…</span>}
                 {articleStatus && <span className={`status-pill ${articleStatus}`}>{articleStatus.replace("_", " ")}</span>}
-                <button className="btn" style={{ padding: "3px 10px" }} onClick={() => { setDraft(EXAMPLE); setSuggestions(null); }}>Load example</button>
               </div>
             </div>
             <div className="card-body">
-              <div className="field">
-                <label>SEO Title{analysis && <span className={`counter ${titleWarn}`}>~{analysis.metrics.titleWidthPx}px</span>}</label>
-                <input type="text" value={draft.title} placeholder="Your compelling, keyword-rich title" onChange={(e) => set("title", e.target.value)} />
-              </div>
-              <div className="row" style={{ marginTop: 14 }}>
-                <div className="field" style={{ marginTop: 0 }}>
-                  <label>Focus Keyphrase</label>
-                  <input type="text" value={draft.focusKeyphrase} placeholder="e.g. remote team productivity" onChange={(e) => set("focusKeyphrase", e.target.value)} />
-                </div>
-                <div className="field" style={{ marginTop: 0 }}>
-                  <label>URL Slug</label>
-                  <input type="text" value={draft.slug} placeholder="remote-team-productivity" onChange={(e) => set("slug", e.target.value)} />
-                </div>
-              </div>
-              <div className="field">
-                <label>Secondary keyphrases <span className="hint" style={{ display: "inline" }}>(comma-separated)</span></label>
-                <input type="text" value={draft.secondaryKeyphrases} placeholder="async communication, distributed teams" onChange={(e) => set("secondaryKeyphrases", e.target.value)} />
-              </div>
-              <div className="row" style={{ marginTop: 14 }}>
-                <div className="field" style={{ marginTop: 0 }}>
-                  <label>Categories <span className="hint" style={{ display: "inline" }}>(comma-separated)</span></label>
-                  <input type="text" value={draft.categories} placeholder="Team Management" onChange={(e) => set("categories", e.target.value)} />
-                </div>
-                <div className="field" style={{ marginTop: 0 }}>
-                  <label>Tags <span className="hint" style={{ display: "inline" }}>(comma-separated)</span></label>
-                  <input type="text" value={draft.tags} placeholder="remote work, productivity" onChange={(e) => set("tags", e.target.value)} />
-                </div>
-              </div>
-              <div className="field">
-                <label>Meta Description<span className={`counter ${metaWarn}`}>{metaLen}/158</span></label>
-                <textarea rows={2} value={draft.metaDescription} placeholder="A 120-158 character summary that earns the click." onChange={(e) => set("metaDescription", e.target.value)} />
-              </div>
-              <div className="field">
-                <label>Content (Markdown or HTML)</label>
-                <textarea className="content" value={draft.content} placeholder="Write or paste your post here…" onChange={(e) => set("content", e.target.value)} />
-                <div className="hint">Paste from WordPress (HTML) or write Markdown — both work.</div>
-              </div>
+              <input className="title-input" value={draft.title} placeholder="Article title…" onChange={(e) => set("title", e.target.value)} />
+              <RichEditor value={draft.content} onChange={(html) => set("content", html)} onUploadingChange={setUploading} />
 
               <div className="btn-row" style={{ marginTop: 14 }}>
-                <button className="btn" onClick={getSuggestions} disabled={suggestLoading || !draft.content.trim()}>
+                <button className="btn" onClick={getSuggestions} disabled={suggestLoading || !hasContent}>
                   {suggestLoading && <span className="spinner" />} Get AI suggestions
                 </button>
                 <button className="btn" onClick={generateAltText} disabled={altLoading || missingAlt === 0} title={missingAlt === 0 ? "No images missing alt" : `${missingAlt} missing`}>
                   {altLoading && <span className="spinner" />} 🖼 Alt text{missingAlt > 0 ? ` (${missingAlt})` : ""}
                 </button>
-                <button className="btn primary" onClick={runAutoFix} disabled={fixLoading || !draft.content.trim()}>
+                <button className="btn primary" onClick={runAutoFix} disabled={fixLoading || !hasContent}>
                   {fixLoading && <span className="spinner" />} ✨ Auto-fix with AI
                 </button>
               </div>
 
-              {/* Save / publish workflow */}
               <div className="btn-row" style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
                 {authEnabled && (
                   <button className="btn" onClick={saveDraft} disabled={saving || !hasContent}>
@@ -343,20 +252,14 @@ export default function Home() {
                   </button>
                 )}
                 {authEnabled && !mayPublish && (
-                  <button className="btn primary" onClick={submitForReview} disabled={saving || !hasContent}>
-                    Submit for review
-                  </button>
+                  <button className="btn primary" onClick={submitForReview} disabled={saving || !hasContent}>Submit for review</button>
                 )}
                 {mayPublish && (
-                  <button className="btn primary" onClick={() => setPublishOpen(true)} disabled={!hasContent}>
-                    Publish to WordPress
-                  </button>
+                  <button className="btn primary" onClick={() => setPublishOpen(true)} disabled={!hasContent}>Publish to WordPress</button>
                 )}
               </div>
               {authEnabled && !mayPublish && (
-                <div className="hint" style={{ marginTop: 8 }}>
-                  As an author you can write and submit for review. An editor approves and publishes.
-                </div>
+                <div className="hint" style={{ marginTop: 8 }}>As an author you write and submit for review; an editor approves and publishes.</div>
               )}
             </div>
           </div>
@@ -375,16 +278,15 @@ export default function Home() {
               </div>
             </div>
           )}
-
-          <LinkedInPanel draft={draft} onBanner={setBanner} />
         </div>
 
+        {/* ---- Analysis + SEO column ---- */}
         <div>
           <div className="card">
             <div className="card-header">Score{analyzing && <span className="spinner" />}</div>
             <div className="card-body">
               {!analysis ? (
-                <div className="hint">Start typing to see your live SEO & readability score.</div>
+                <div className="hint">Start writing to see your live SEO & readability score.</div>
               ) : (
                 <>
                   <div className="scores">
@@ -400,6 +302,56 @@ export default function Home() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+
+          {/* SEO metadata (auto-generated) */}
+          <div className="card">
+            <div className="card-header">
+              SEO metadata
+              <span className="provider-note">{aiProvider ? `AI: ${aiProvider}` : "rule-based"}</span>
+            </div>
+            <div className="card-body">
+              <button className="btn primary" style={{ width: "100%", justifyContent: "center", display: "flex" }} onClick={generateSeo} disabled={seoLoading || !hasContent}>
+                {seoLoading && <span className="spinner" />} ✨ Generate SEO from content
+              </button>
+              <div className="hint" style={{ margin: "8px 0 14px" }}>
+                Auto-fills the focus keyphrase, tags, meta description, and slug from what you wrote. Edit anything below.
+              </div>
+
+              <div className="field" style={{ marginTop: 0 }}>
+                <label>Focus keyphrase</label>
+                <input type="text" value={draft.focusKeyphrase} placeholder="generated from content" onChange={(e) => set("focusKeyphrase", e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Meta description<span className={`counter ${metaWarn}`}>{metaLen}/158</span></label>
+                <textarea rows={2} value={draft.metaDescription} onChange={(e) => set("metaDescription", e.target.value)} />
+              </div>
+              <div className="field">
+                <label>URL slug</label>
+                <input type="text" value={draft.slug} onChange={(e) => set("slug", e.target.value)} />
+              </div>
+              <div className="field">
+                <label>Tags ({tagList.length})</label>
+                {tagList.length > 0 && (
+                  <div className="seo-field-row" style={{ marginBottom: 8 }}>
+                    {tagList.map((t) => (
+                      <span className="chip" key={t}>{t}<button title="remove" onClick={() => removeTag(t)}>×</button></span>
+                    ))}
+                  </div>
+                )}
+                <input type="text" value={draft.tags} placeholder="comma-separated" onChange={(e) => set("tags", e.target.value)} />
+              </div>
+              <div className="row">
+                <div className="field">
+                  <label>Categories</label>
+                  <input type="text" value={draft.categories} placeholder="Primary Category" onChange={(e) => set("categories", e.target.value)} />
+                </div>
+                <div className="field">
+                  <label>Secondary keyphrases</label>
+                  <input type="text" value={draft.secondaryKeyphrases} placeholder="related terms" onChange={(e) => set("secondaryKeyphrases", e.target.value)} />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -419,13 +371,9 @@ export default function Home() {
 
       {fixPreview && <FixPreviewModal preview={fixPreview} onApply={applyFix} onClose={() => setFixPreview(null)} />}
       {publishOpen && (
-        <PublishModal
-          draft={draft}
-          articleId={articleId}
-          multiUser={authEnabled}
+        <PublishModal draft={draft} articleId={articleId} multiUser={authEnabled}
           onClose={() => setPublishOpen(false)}
-          onDone={(msg, status) => { setPublishOpen(false); if (status) setArticleStatus(status); setBanner({ kind: "success", text: msg }); }}
-        />
+          onDone={(msg, status) => { setPublishOpen(false); if (status) setArticleStatus(status); setBanner({ kind: "success", text: msg }); }} />
       )}
     </>
   );
@@ -434,7 +382,6 @@ export default function Home() {
 function Gauge({ label, value }: { label: string; value: number }) {
   return <div className="gauge"><div className={`num ${scoreClass(value)}`}>{value}</div><div className="lbl">{label}</div></div>;
 }
-
 function Check({ c }: { c: CheckResult }) {
   return (
     <div className="check">
@@ -465,7 +412,6 @@ function FixPreviewModal({ preview, onApply, onClose }: {
           {preview.fixed.changes.length > 0 && (
             <><label style={{ marginTop: 14 }}>What changed</label><ul className="diff-changes">{preview.fixed.changes.map((ch, i) => <li key={i}>{ch}</li>)}</ul></>
           )}
-          <div className="field"><label>New content preview</label><textarea className="content" style={{ minHeight: 180 }} readOnly value={preview.fixed.content} /></div>
           <div className="btn-row" style={{ marginTop: 14, justifyContent: "flex-end" }}>
             <button className="btn" onClick={onClose}>Discard</button>
             <button className="btn primary" onClick={onApply}>Apply changes</button>
@@ -492,10 +438,7 @@ function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
   async function test() {
     setBusy(true); setError(null); setTested(null);
     try {
-      const res = await fetch("/api/wordpress/test", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, username, applicationPassword }),
-      });
+      const res = await fetch("/api/wordpress/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, username, applicationPassword }) });
       const data = await res.json();
       if (!res.ok) setError(data.error);
       else {
@@ -516,9 +459,7 @@ function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
         status, pingIndexNow, articleId,
       };
       if (!multiUser) { body.url = url; body.username = username; body.applicationPassword = applicationPassword; }
-      const res = await fetch("/api/wordpress/publish", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
+      const res = await fetch("/api/wordpress/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       const idx = data.indexNow?.ok ? " Search engines pinged via IndexNow." : "";
@@ -541,7 +482,6 @@ function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
           )}
           {error && <div className="banner error">{error}</div>}
           {tested && <div className="banner success">{tested}</div>}
-
           {!multiUser && (
             <>
               <div className="field" style={{ marginTop: 0 }}><label>Site URL</label><input type="text" value={url} placeholder="https://blog.example.com" onChange={(e) => setUrl(e.target.value)} /></div>
@@ -559,7 +499,6 @@ function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
             <input type="checkbox" checked={pingIndexNow} onChange={(e) => setPingIndexNow(e.target.checked)} style={{ width: "auto" }} />
             Notify search engines via IndexNow when published
           </label>
-
           <div className="btn-row" style={{ marginTop: 16, justifyContent: "space-between" }}>
             {!multiUser ? <button className="btn" onClick={test} disabled={busy}>{busy && <span className="spinner" />} Test connection</button> : <span />}
             <div className="btn-row">
@@ -568,77 +507,6 @@ function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
             </div>
           </div>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function LinkedInPanel({ draft, onBanner }: {
-  draft: Draft; onBanner: (b: { kind: "error" | "success" | "info"; text: string }) => void;
-}) {
-  const [state, setState] = useState<{ configured: boolean; connected: boolean; name?: string | null; orgId?: string | null }>({ configured: false, connected: false });
-  const [text, setText] = useState("");
-  const [target, setTarget] = useState<"member" | "organization">("member");
-  const [busy, setBusy] = useState(false);
-  const [drafting, setDrafting] = useState(false);
-
-  useEffect(() => { fetch("/api/linkedin/status").then((r) => r.json()).then(setState).catch(() => {}); }, []);
-
-  function useArticleAsIs() {
-    const parts = [draft.title, draft.metaDescription].filter(Boolean);
-    setText(parts.join("\n\n"));
-  }
-
-  async function draftPost() {
-    setDrafting(true);
-    try {
-      const res = await fetch("/api/ai/linkedin-draft", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: draft.title, content: draft.content, focusKeyphrase: draft.focusKeyphrase }),
-      });
-      const data = await res.json();
-      if (!res.ok) { onBanner({ kind: "error", text: data.error }); return; }
-      setText(data.text);
-    } catch (e) { onBanner({ kind: "error", text: (e as Error).message }); } finally { setDrafting(false); }
-  }
-
-  async function post() {
-    setBusy(true);
-    try {
-      const res = await fetch("/api/linkedin/post", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commentary: text, target, orgId: state.orgId ?? undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) { onBanner({ kind: "error", text: data.error }); return; }
-      onBanner({ kind: "success", text: `Posted to LinkedIn${data.post.url ? `: ${data.post.url}` : "."}` });
-    } catch (e) { onBanner({ kind: "error", text: (e as Error).message }); } finally { setBusy(false); }
-  }
-
-  return (
-    <div className="card">
-      <div className="card-header">Distribute · LinkedIn{state.connected ? <span className="counter">✓ {state.name || "connected"}</span> : null}</div>
-      <div className="card-body">
-        {!state.configured ? (
-          <div className="hint">LinkedIn is not configured on the server (see SETUP.md).</div>
-        ) : !state.connected ? (
-          <a className="btn primary" href="/api/linkedin/auth">Connect LinkedIn</a>
-        ) : (
-          <>
-            <div className="btn-row" style={{ marginBottom: 10 }}>
-              <button className="btn" onClick={draftPost} disabled={drafting || !draft.content.trim()}>{drafting && <span className="spinner" />} ✨ AI-adapt for LinkedIn</button>
-              <button className="btn" onClick={useArticleAsIs} disabled={!draft.title.trim()}>Use article as-is</button>
-            </div>
-            <textarea rows={7} value={text} placeholder="Write your LinkedIn post, generate one, or use the article as-is…" onChange={(e) => setText(e.target.value)} />
-            <div className="btn-row" style={{ marginTop: 10, justifyContent: "space-between" }}>
-              <select value={target} onChange={(e) => setTarget(e.target.value as "member" | "organization")} style={{ width: "auto" }}>
-                <option value="member">My profile</option>
-                <option value="organization" disabled={!state.orgId}>Company page{state.orgId ? "" : " (needs org ID)"}</option>
-              </select>
-              <button className="btn primary" onClick={post} disabled={busy || !text.trim()}>{busy && <span className="spinner" />} Post to LinkedIn</button>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

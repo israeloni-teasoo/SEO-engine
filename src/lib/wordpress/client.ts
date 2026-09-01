@@ -198,6 +198,46 @@ export async function resolveTerms(
   return ids;
 }
 
+export interface UploadedMedia {
+  id: number;
+  source_url: string;
+}
+
+/** Upload an image to the WordPress media library. Returns the hosted URL. */
+export async function uploadMedia(
+  creds: WordPressCredentials,
+  file: { filename: string; contentType: string; data: Buffer | Uint8Array },
+): Promise<UploadedMedia> {
+  const base = normalizeBaseUrl(creds.url);
+  const endpoint = `${base}/wp-json/wp/v2/media`;
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader(creds),
+        "Content-Type": file.contentType || "application/octet-stream",
+        "Content-Disposition": `attachment; filename="${file.filename.replace(/"/g, "")}"`,
+      },
+      body: file.data as BodyInit,
+    });
+  } catch (e) {
+    throw new WordPressError(`Could not reach ${base} to upload media. (${(e as Error).message})`, 0);
+  }
+  const text = await res.text();
+  if (!res.ok) {
+    let message = `Media upload failed (${res.status}).`;
+    try {
+      const parsed = JSON.parse(text) as { message?: string };
+      if (parsed.message) message = parsed.message;
+    } catch {
+      /* keep default */
+    }
+    throw new WordPressError(message, res.status);
+  }
+  return JSON.parse(text) as UploadedMedia;
+}
+
 /** Does the SEO Engine companion bridge plugin appear to be installed? */
 export async function bridgeStatus(
   creds: WordPressCredentials,

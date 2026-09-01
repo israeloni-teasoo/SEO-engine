@@ -1,8 +1,7 @@
 import type { AnalysisInput, AnalysisResult, CheckResult } from "../analysis/types";
-import { AI_MODEL, extractJson, getClient, textOf } from "./client";
+import { generateText, extractJson } from "./provider";
 
 export interface Suggestion {
-  /** The check id this addresses, when applicable. */
   checkId?: string;
   title: string;
   detail: string;
@@ -10,7 +9,7 @@ export interface Suggestion {
 }
 
 const SYSTEM = `You are an expert SEO editor and content strategist who helps writers
-improve blog posts for organic search (Google) and for engagement on WordPress and LinkedIn.
+improve blog posts for organic search (Google) and WordPress publishing.
 You understand on-page SEO, E-E-A-T, search intent, readability, and helpful-content principles.
 
 You are given a draft post and the results of a rule-based analysis. Produce specific,
@@ -25,23 +24,17 @@ Respond with ONLY a JSON object of this shape (no prose, no code fence):
   ]
 }`;
 
-function failing(checks: CheckResult[]): CheckResult[] {
-  return checks.filter((c) => c.status !== "good");
-}
+const failing = (checks: CheckResult[]) => checks.filter((c) => c.status !== "good");
 
 export async function getSuggestions(
   input: AnalysisInput,
   analysis: AnalysisResult,
 ): Promise<Suggestion[]> {
-  const client = getClient();
   const issues = failing(analysis.checks).map((c) => ({
-    id: c.id,
-    label: c.label,
-    status: c.status,
-    note: c.message,
+    id: c.id, label: c.label, status: c.status, note: c.message,
   }));
 
-  const userContent = JSON.stringify(
+  const prompt = `Here is the draft and its analysis. Return prioritised suggestions.\n\n${JSON.stringify(
     {
       title: input.title,
       focusKeyphrase: input.focusKeyphrase ?? null,
@@ -50,32 +43,16 @@ export async function getSuggestions(
       slug: input.slug ?? null,
       tags: input.tags ?? [],
       categories: input.categories ?? [],
-      scores: {
-        overall: analysis.overallScore,
-        seo: analysis.seoScore,
-        readability: analysis.readabilityScore,
-      },
+      scores: { overall: analysis.overallScore, seo: analysis.seoScore, readability: analysis.readabilityScore },
       metrics: analysis.metrics,
       failingChecks: issues,
       content: input.content,
     },
     null,
     2,
-  );
+  )}`;
 
-  const response = await client.messages.create({
-    model: AI_MODEL,
-    max_tokens: 4000,
-    thinking: { type: "adaptive" },
-    system: SYSTEM,
-    messages: [
-      {
-        role: "user",
-        content: `Here is the draft and its analysis. Return prioritised suggestions.\n\n${userContent}`,
-      },
-    ],
-  });
-
-  const parsed = extractJson<{ suggestions?: Suggestion[] }>(textOf(response.content));
+  const text = await generateText({ system: SYSTEM, prompt, maxTokens: 4000, json: true });
+  const parsed = extractJson<{ suggestions?: Suggestion[] }>(text);
   return Array.isArray(parsed.suggestions) ? parsed.suggestions : [];
 }

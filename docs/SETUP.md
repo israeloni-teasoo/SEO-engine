@@ -5,14 +5,23 @@ what **you** provide and where it goes.
 
 ---
 
-## 1. Claude AI (required for AI features)
+## 1. AI provider (optional — there's a FREE option)
 
-Powers suggestions, auto-fix, alt-text generation, and LinkedIn drafting.
+Powers AI suggestions, one-click auto-fix, alt-text generation, and higher-quality
+SEO generation. **None of this is required** — the live score, checklist, and the
+"Generate SEO from content" button all work with **no key at all** (rule-based).
+Add a key only to turn on the AI features. The app auto-detects which provider to
+use: **Gemini → Anthropic → OpenAI**.
 
-- **You provide:** an API key from <https://console.anthropic.com/>.
-- **Where:** `ANTHROPIC_API_KEY` env var.
+| Provider | Cost | Get a key |
+|---|---|---|
+| **Google Gemini** | **Free tier** (recommended) | <https://aistudio.google.com/apikey> → `GEMINI_API_KEY` |
+| Groq (Llama) | Free tier | set `OPENAI_API_KEY` + `OPENAI_BASE_URL=https://api.groq.com/openai/v1` |
+| OpenRouter | Free models available | `OPENAI_API_KEY` + `OPENAI_BASE_URL=https://openrouter.ai/api/v1` |
+| Anthropic Claude | Paid | <https://console.anthropic.com/> → `ANTHROPIC_API_KEY` |
 
-The rule-based score/checklist works without this; only the AI buttons need it.
+Set exactly one key. Optionally force a choice with `AI_PROVIDER` and pick a model
+with `SEO_AI_MODEL` (e.g. `gemini-2.0-flash`).
 
 ---
 
