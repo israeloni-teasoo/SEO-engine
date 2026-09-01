@@ -1,4 +1,5 @@
 import { generateText, extractJson } from "./provider";
+import { STYLE_RULES, sanitizeAiText } from "./style";
 import { slugify, type DerivedSeo } from "../seo/derive";
 
 export interface AiSeo extends DerivedSeo {
@@ -25,7 +26,7 @@ export async function generateSeoWithAi(input: {
   content: string;
 }): Promise<AiSeo> {
   const prompt = `Title: ${input.title || "(untitled)"}\n\nArticle:\n${input.content}`;
-  const text = await generateText({ system: SYSTEM, prompt, maxTokens: 3000, json: true });
+  const text = await generateText({ system: `${SYSTEM}\n\n${STYLE_RULES}`, prompt, maxTokens: 3000, json: true });
   const p = extractJson<Partial<AiSeo>>(text);
   const arr = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : [];
@@ -34,7 +35,7 @@ export async function generateSeoWithAi(input: {
     secondaryKeyphrases: arr(p.secondaryKeyphrases),
     tags: arr(p.tags),
     keywordIdeas: arr(p.keywordIdeas),
-    metaDescription: (p.metaDescription ?? "").trim(),
+    metaDescription: sanitizeAiText((p.metaDescription ?? "").trim()),
     slug: p.slug ? slugify(p.slug) : slugify(input.title),
   };
 }

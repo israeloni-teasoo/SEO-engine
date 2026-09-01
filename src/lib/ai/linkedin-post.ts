@@ -1,4 +1,5 @@
 import { generateText } from "./provider";
+import { STYLE_RULES, sanitizeAiText } from "./style";
 
 export interface LinkedInDraftInput {
   title: string;
@@ -27,6 +28,6 @@ export async function generateLinkedInPost(input: LinkedInDraftInput): Promise<s
     input.content,
   ].filter(Boolean).join("\n");
 
-  const text = await generateText({ system: SYSTEM, prompt, maxTokens: 1200 });
-  return text.trim();
+  const text = await generateText({ system: `${SYSTEM}\n\n${STYLE_RULES}`, prompt, maxTokens: 1200 });
+  return sanitizeAiText(text.trim());
 }

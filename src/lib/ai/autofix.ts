@@ -1,5 +1,6 @@
 import type { AnalysisInput, AnalysisResult, CheckResult } from "../analysis/types";
 import { generateText, extractJson } from "./provider";
+import { STYLE_RULES, sanitizeAiText } from "./style";
 
 export interface AutoFixResult {
   title: string;
@@ -78,19 +79,24 @@ export async function autoFix(
     input.content,
   ].join("\n");
 
-  const text = await generateText({ system: SYSTEM, prompt: brief, maxTokens: 16000, json: true });
+  const text = await generateText({
+    system: `${SYSTEM}\n\n${STYLE_RULES}`,
+    prompt: brief,
+    maxTokens: 16000,
+    json: true,
+  });
   const parsed = extractJson<Partial<AutoFixResult>>(text);
   const arr = (v: unknown, fallback: string[]) =>
     Array.isArray(v) ? v.map((x) => String(x).trim()).filter(Boolean) : fallback;
   return {
-    title: parsed.title ?? input.title,
-    metaDescription: parsed.metaDescription ?? input.metaDescription ?? "",
+    title: sanitizeAiText(parsed.title ?? input.title),
+    metaDescription: sanitizeAiText(parsed.metaDescription ?? input.metaDescription ?? ""),
     slug: parsed.slug ?? input.slug ?? "",
     focusKeyphrase: parsed.focusKeyphrase ?? input.focusKeyphrase ?? "",
     secondaryKeyphrases: arr(parsed.secondaryKeyphrases, input.secondaryKeyphrases ?? []),
     tags: arr(parsed.tags, input.tags ?? []),
     categories: arr(parsed.categories, input.categories ?? []),
-    content: parsed.content ?? input.content,
+    content: sanitizeAiText(parsed.content ?? input.content),
     changes: Array.isArray(parsed.changes) ? parsed.changes : [],
   };
 }

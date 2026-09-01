@@ -10,7 +10,7 @@ import type {
   CreatePostInput,
   SeoMeta,
 } from "@/lib/wordpress/client";
-import { prepareContentForWordPress } from "@/lib/wordpress/prepare-content";
+import { prepareContentForWordPress, resolveFeaturedMediaId } from "@/lib/wordpress/prepare-content";
 import { toHtml } from "@/lib/markdown";
 import { submitUrls, hostFromUrl } from "@/lib/indexing/indexnow";
 import { authConfigured } from "@/lib/auth/session";
@@ -40,6 +40,10 @@ interface PublishBody extends Partial<WordPressCredentials> {
   articleId?: string;
   /** Update this existing WordPress post instead of creating a new one. */
   wpPostId?: number;
+  /** Cover / featured image URL (or data URL). */
+  coverImage?: string;
+  /** Known media ID for the cover (from an in-app upload). */
+  coverMediaId?: number;
 }
 
 const multiUser = () => authConfigured() && dbConfigured();
@@ -109,6 +113,13 @@ export async function POST(req: Request) {
     // Host inline/external images in the WP media library and pick a featured image.
     const prepared = await prepareContentForWordPress(creds, toHtml(body.content));
 
+    // Featured image priority: explicit cover media id > uploaded cover > first content image.
+    let featuredMediaId: number | undefined = typeof body.coverMediaId === "number" ? body.coverMediaId : undefined;
+    if (!featuredMediaId && body.coverImage) {
+      featuredMediaId = await resolveFeaturedMediaId(creds, body.coverImage);
+    }
+    if (!featuredMediaId) featuredMediaId = prepared.featuredMediaId;
+
     const [tagIds, categoryIds] = await Promise.all([
       body.tags?.length ? resolveTerms(creds, "tags", body.tags) : Promise.resolve([]),
       body.categories?.length
@@ -135,7 +146,7 @@ export async function POST(req: Request) {
       tags: tagIds,
       categories: categoryIds,
       meta,
-      featured_media: prepared.featuredMediaId,
+      featured_media: featuredMediaId,
     };
 
     const updated = Boolean(existingPostId);

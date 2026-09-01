@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppHeader from "./components/AppHeader";
 import RichEditor from "./components/RichEditor";
+import ReviewPanel from "./components/ReviewPanel";
+import { applyContentEdit } from "./components/reviewApply";
 import { useMe, canPublishRole } from "./components/useMe";
+import type { SuggestedEdit, EditField } from "@/lib/ai/suggest-edits";
 
 type Status = "good" | "ok" | "bad";
 
@@ -45,6 +48,12 @@ export default function Home() {
   const [articleId, setArticleId] = useState<string | null>(null);
   const [articleStatus, setArticleStatus] = useState<string | null>(null);
   const [wpPostId, setWpPostId] = useState<number | null>(null);
+  const [coverImage, setCoverImage] = useState("");
+  const [coverMediaId, setCoverMediaId] = useState<number | null>(null);
+  const [coverPickerOpen, setCoverPickerOpen] = useState(false);
+
+  const [reviewEdits, setReviewEdits] = useState<SuggestedEdit[] | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -83,6 +92,7 @@ export default function Home() {
         slug: a.slug, tags: joinList(a.tags), categories: joinList(a.categories),
       });
       setArticleId(a.id); setArticleStatus(a.status); setWpPostId(a.wpPostId ?? null);
+      setCoverImage(a.coverImage ?? "");
     }).catch(() => {});
   }, []);
 
@@ -131,7 +141,7 @@ export default function Home() {
   async function saveDraft(): Promise<string | null> {
     setSaving(true); setBanner(null);
     try {
-      const body = { ...payload(draft), overallScore: analysis?.overallScore ?? null };
+      const body = { ...payload(draft), coverImage, overallScore: analysis?.overallScore ?? null };
       const res = await fetch(articleId ? `/api/articles/${articleId}` : "/api/articles", {
         method: articleId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
       });
@@ -197,6 +207,53 @@ export default function Home() {
     finally { setAltLoading(false); }
   }
 
+  async function reviewFixes() {
+    setReviewLoading(true); setBanner(null);
+    try {
+      const res = await fetch("/api/ai/suggest-edits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
+      const data = await res.json();
+      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Could not build suggestions." }); return; }
+      if (!data.edits?.length) { setBanner({ kind: "info", text: "No suggestions — this looks well optimized already." }); return; }
+      setReviewEdits(data.edits as SuggestedEdit[]);
+    } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
+    finally { setReviewLoading(false); }
+  }
+
+  function currentField(f: EditField): string {
+    switch (f) {
+      case "title": return draft.title;
+      case "metaDescription": return draft.metaDescription;
+      case "slug": return draft.slug;
+      case "focusKeyphrase": return draft.focusKeyphrase;
+      case "secondaryKeyphrases": return draft.secondaryKeyphrases;
+      case "tags": return draft.tags;
+      case "categories": return draft.categories;
+    }
+  }
+  function applyFieldEdit(f: EditField, value: string) {
+    set(f as keyof Draft, value);
+  }
+  function applyContentEditToDraft(edit: SuggestedEdit) {
+    const { html, applied } = applyContentEdit(draft.content, edit);
+    if (applied) set("content", html);
+  }
+
+  async function uploadCover(file: File) {
+    setBanner(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/wordpress/media", { method: "POST", body: form });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        setCoverImage(data.url);
+        setCoverMediaId(typeof data.id === "number" ? data.id : null);
+      } else {
+        setBanner({ kind: "error", text: data.error || "Cover upload failed." });
+      }
+    } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
+  }
+
   function applyFix() {
     if (!fixPreview) return;
     const { changes: _c, ...rest } = fixPreview.fixed;
@@ -230,6 +287,17 @@ export default function Home() {
         <div>
           {banner && <div className={`banner ${banner.kind}`}>{banner.text}</div>}
 
+          {reviewEdits && (
+            <ReviewPanel
+              content={draft.content}
+              edits={reviewEdits}
+              currentField={currentField}
+              onApplyField={applyFieldEdit}
+              onApplyContent={applyContentEditToDraft}
+              onClose={() => setReviewEdits(null)}
+            />
+          )}
+
           <div className="card">
             <div className="card-header">
               Write
@@ -239,6 +307,18 @@ export default function Home() {
               </div>
             </div>
             <div className="card-body">
+              {coverImage ? (
+                <div className="cover-wrap">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={coverImage} alt="Cover" className="cover-img" />
+                  <div className="cover-actions">
+                    <button className="btn" style={{ padding: "3px 10px" }} onClick={() => setCoverPickerOpen(true)}>Change cover</button>
+                    <button className="btn" style={{ padding: "3px 10px" }} onClick={() => { setCoverImage(""); setCoverMediaId(null); }}>Remove</button>
+                  </div>
+                </div>
+              ) : (
+                <button className="cover-add" onClick={() => setCoverPickerOpen(true)}>＋ Add cover image</button>
+              )}
               <input className="title-input" value={draft.title} placeholder="Article title…" onChange={(e) => set("title", e.target.value)} />
               <RichEditor value={draft.content} onChange={(html) => set("content", html)} onUploadingChange={setUploading} />
 
@@ -249,9 +329,15 @@ export default function Home() {
                 <button className="btn" onClick={generateAltText} disabled={altLoading || missingAlt === 0} title={missingAlt === 0 ? "No images missing alt" : `${missingAlt} missing`}>
                   {altLoading && <span className="spinner" />} 🖼 Alt text{missingAlt > 0 ? ` (${missingAlt})` : ""}
                 </button>
+                <button className="btn" onClick={reviewFixes} disabled={reviewLoading || !hasContent}>
+                  {reviewLoading && <span className="spinner" />} 👀 Review fixes
+                </button>
                 <button className="btn primary" onClick={runAutoFix} disabled={fixLoading || !hasContent}>
                   {fixLoading && <span className="spinner" />} ✨ Optimize to 90+
                 </button>
+              </div>
+              <div className="hint" style={{ marginTop: 8 }}>
+                <strong>Optimize to 90+</strong> fixes everything in one click. <strong>Review fixes</strong> lets you accept or ignore each suggestion — your original wording stays unless you accept a change.
               </div>
 
               <div className="btn-row" style={{ marginTop: 14, borderTop: "1px solid var(--border)", paddingTop: 14 }}>
@@ -395,9 +481,17 @@ export default function Home() {
         </div>
       </div>
 
+      {coverPickerOpen && (
+        <CoverPicker
+          content={draft.content}
+          onUpload={(f) => { uploadCover(f); setCoverPickerOpen(false); }}
+          onPick={(url) => { setCoverImage(url); setCoverMediaId(null); setCoverPickerOpen(false); }}
+          onClose={() => setCoverPickerOpen(false)}
+        />
+      )}
       {fixPreview && <FixPreviewModal preview={fixPreview} onApply={applyFix} onClose={() => setFixPreview(null)} />}
       {publishOpen && (
-        <PublishModal draft={draft} articleId={articleId} wpPostId={wpPostId} multiUser={authEnabled}
+        <PublishModal draft={draft} articleId={articleId} wpPostId={wpPostId} coverImage={coverImage} coverMediaId={coverMediaId} multiUser={authEnabled}
           onClose={() => setPublishOpen(false)}
           onDone={(msg, status, newWpPostId) => { setPublishOpen(false); if (status) setArticleStatus(status); if (newWpPostId) setWpPostId(newWpPostId); setBanner({ kind: "success", text: msg }); }} />
       )}
@@ -448,8 +542,61 @@ function FixPreviewModal({ preview, onApply, onClose }: {
   );
 }
 
-function PublishModal({ draft, articleId, wpPostId, multiUser, onClose, onDone }: {
-  draft: Draft; articleId: string | null; wpPostId: number | null; multiUser: boolean;
+function CoverPicker({ content, onUpload, onPick, onClose }: {
+  content: string; onUpload: (f: File) => void; onPick: (url: string) => void; onClose: () => void;
+}) {
+  const [url, setUrl] = useState("");
+  const images = (() => {
+    if (typeof window === "undefined") return [] as string[];
+    const doc = new DOMParser().parseFromString(content, "text/html");
+    return Array.from(doc.querySelectorAll("img"))
+      .map((i) => i.getAttribute("src") || "")
+      .filter(Boolean)
+      .slice(0, 12);
+  })();
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+        <div className="card-header">Choose a cover image</div>
+        <div className="card-body">
+          <label className="btn primary" style={{ display: "inline-flex", cursor: "pointer" }}>
+            ⬆ Upload image
+            <input type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(f); }} />
+          </label>
+
+          <div className="field" style={{ marginTop: 16 }}>
+            <label>…or paste an image URL</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input type="text" value={url} placeholder="https://…/image.jpg" onChange={(e) => setUrl(e.target.value)} />
+              <button className="btn" onClick={() => url.trim() && onPick(url.trim())}>Use</button>
+            </div>
+          </div>
+
+          {images.length > 0 && (
+            <>
+              <label style={{ marginTop: 16 }}>…or pick an image from the article</label>
+              <div className="cover-grid">
+                {images.map((src, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={i} src={src} alt="" className="cover-thumb" onClick={() => onPick(src)} />
+                ))}
+              </div>
+            </>
+          )}
+
+          <div className="btn-row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
+            <button className="btn" onClick={onClose}>Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PublishModal({ draft, articleId, wpPostId, coverImage, coverMediaId, multiUser, onClose, onDone }: {
+  draft: Draft; articleId: string | null; wpPostId: number | null;
+  coverImage: string; coverMediaId: number | null; multiUser: boolean;
   onClose: () => void; onDone: (msg: string, status?: string, wpPostId?: number) => void;
 }) {
   const [url, setUrl] = useState("");
@@ -483,6 +630,7 @@ function PublishModal({ draft, articleId, wpPostId, multiUser, onClose, onDone }
         focusKeyphrase: draft.focusKeyphrase, secondaryKeyphrases: splitList(draft.secondaryKeyphrases),
         slug: draft.slug, tags: splitList(draft.tags), categories: splitList(draft.categories),
         status, pingIndexNow, articleId, wpPostId: wpPostId ?? undefined,
+        coverImage: coverImage || undefined, coverMediaId: coverMediaId ?? undefined,
       };
       if (!multiUser) { body.url = url; body.username = username; body.applicationPassword = applicationPassword; }
       const res = await fetch("/api/wordpress/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
