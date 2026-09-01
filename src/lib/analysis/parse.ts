@@ -10,7 +10,13 @@ import { splitSentences, tokenizeWords } from "./text-stats";
  * produce the same DOM. Raw HTML passes through `marked` essentially untouched.
  */
 export function parseContent(rawContent: string, siteDomain?: string): ParsedContent {
-  const html = markdownToHtml(rawContent);
+  const rawHtml = markdownToHtml(rawContent);
+  // Insert a separator after each block element so extracted text doesn't run
+  // words together across blocks (e.g. a heading directly before a paragraph).
+  const html = rawHtml.replace(
+    /<\/(h[1-6]|p|li|blockquote|div|section|article|ul|ol|tr|td|th|figcaption)>/gi,
+    "$& \n",
+  );
   const root = parseHtml(html, {
     lowerCaseTagName: true,
     comment: false,

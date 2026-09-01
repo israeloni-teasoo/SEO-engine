@@ -5,14 +5,20 @@ before they go out, suggests fixes, can **auto-fix** them with AI, and publishes
 the finished post straight to **WordPress** — a free alternative to the paid
 SEO plugins, working from one place across the posts you also share on LinkedIn.
 
+You **write the article in a rich block editor** (headings, paragraphs, lists,
+images — like Hashnode/Medium), and the system reads what you wrote to score it,
+generate the SEO metadata, and suggest fixes.
+
 It combines two engines:
 
 1. **A deterministic rule engine** (Yoast/Google-style checks) that gives you an
-   instant, explainable score with a green/orange/red breakdown — no API key,
-   no cost, fully offline.
-2. **An AI layer (Claude)** that reads the draft plus the rule results and either
-   suggests prioritized, concrete edits, rewrites the post in one click, or
-   generates missing image alt text and a LinkedIn post.
+   instant, explainable score with a green/orange/red breakdown — plus rule-based
+   generation of the focus keyphrase, tags, meta description, and slug. **No API
+   key, no cost, fully offline.**
+2. **An optional AI layer** that reads the draft plus the rule results to suggest
+   concrete edits, rewrite the post in one click, generate image alt text, and
+   produce higher-quality SEO metadata. Works with a **free Google Gemini key**
+   (or Groq/OpenRouter free tiers, or paid Claude/OpenAI) — auto-detected.
 
 Then it publishes to **WordPress** over the REST API (with SEO meta, tags &
 categories) and cross-posts to **LinkedIn**, so a post that's "good to go" never
@@ -34,6 +40,13 @@ transition words, and more.
 
 ## Features
 
+- **Rich block editor** — write with real headings, paragraphs, lists, quotes,
+  links, and inline images (uploaded to your WordPress media library).
+- **Auto-generate SEO from your content** — one click fills the focus keyphrase,
+  a full set of tags, the meta description, and the slug. Free (rule-based) or
+  AI-enhanced.
+- **Free AI, or bring your own** — Google Gemini free tier (recommended), Groq /
+  OpenRouter free tiers, or paid Claude / OpenAI. Auto-detected from your env key.
 - **Live SEO + readability score** with a green/orange/red checklist.
 - **Focus keyphrase, secondary keyphrases, tags, and category** all analyzed.
 - **AI suggestions** and **one-click auto-fix** (rewrites the body, meta, title,

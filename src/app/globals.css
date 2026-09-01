@@ -539,3 +539,107 @@ select:focus {
   text-align: center;
 }
 .page { max-width: 1000px; margin: 0 auto; padding: 20px 24px; }
+
+/* --- Rich editor (TipTap) --- */
+.editor-shell {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 5;
+  flex-wrap: wrap;
+}
+.tb-btn {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+.tb-btn:hover { background: var(--panel-2); color: var(--text); }
+.tb-btn.active { background: var(--panel-2); color: var(--accent); border-color: var(--border); }
+.tb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
+
+.editor-content {
+  padding: 8px 22px 40px;
+  max-height: 62vh;
+  overflow-y: auto;
+}
+.editor-content .ProseMirror {
+  outline: none;
+  min-height: 300px;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text);
+}
+.editor-content .ProseMirror:focus { outline: none; }
+.editor-content .ProseMirror p { margin: 0 0 14px; }
+.editor-content .ProseMirror h1 { font-size: 28px; font-weight: 700; margin: 24px 0 12px; }
+.editor-content .ProseMirror h2 { font-size: 23px; font-weight: 700; margin: 22px 0 10px; }
+.editor-content .ProseMirror h3 { font-size: 19px; font-weight: 600; margin: 18px 0 8px; }
+.editor-content .ProseMirror ul,
+.editor-content .ProseMirror ol { padding-left: 24px; margin: 0 0 14px; }
+.editor-content .ProseMirror li { margin-bottom: 6px; }
+.editor-content .ProseMirror blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 0 0 14px;
+  padding: 4px 0 4px 16px;
+  color: var(--muted);
+}
+.editor-content .ProseMirror a { color: var(--accent); }
+.editor-content .ProseMirror img {
+  max-width: 100%;
+  border-radius: 8px;
+  margin: 8px 0;
+  border: 1px solid var(--border);
+}
+.editor-content .ProseMirror img.ProseMirror-selectednode { outline: 2px solid var(--accent); }
+.editor-content .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: var(--muted);
+  pointer-events: none;
+  height: 0;
+}
+
+.title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-size: 30px;
+  font-weight: 700;
+  padding: 6px 0 12px;
+  outline: none;
+}
+.title-input::placeholder { color: var(--muted); opacity: 0.6; }
+
+.seo-field-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  font-size: 11px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.chip button { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0; font-size: 13px; line-height: 1; }
+.provider-note { font-size: 11px; color: var(--muted); }

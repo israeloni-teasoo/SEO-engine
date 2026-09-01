@@ -1,10 +1,9 @@
-import { AI_MODEL, getClient, textOf } from "./client";
+import { generateText } from "./provider";
 
 export interface LinkedInDraftInput {
   title: string;
   content: string;
   focusKeyphrase?: string;
-  /** Public URL of the published post, appended as the link if provided. */
   url?: string;
 }
 
@@ -15,29 +14,19 @@ Style:
 - Conversational and specific; pull 2-4 concrete takeaways from the article.
 - End with a soft call to action to read the full post.
 - Add 3-5 relevant hashtags on the last line.
-- Plain text only (LinkedIn has no rich formatting). Do not use markdown.
-Return ONLY the post text — no preamble, no quotes around it.`;
+- Plain text only (no markdown).
+Return ONLY the post text — no preamble, no quotes.`;
 
-/** Generate a LinkedIn-native post adapted from the blog article. */
 export async function generateLinkedInPost(input: LinkedInDraftInput): Promise<string> {
-  const client = getClient();
-  const brief = [
+  const prompt = [
     `Article title: ${input.title}`,
     input.focusKeyphrase ? `Topic: ${input.focusKeyphrase}` : "",
     input.url ? `Link to include: ${input.url}` : "",
     "",
     "Article:",
     input.content,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean).join("\n");
 
-  const response = await client.messages.create({
-    model: AI_MODEL,
-    max_tokens: 1200,
-    system: SYSTEM,
-    messages: [{ role: "user", content: brief }],
-  });
-
-  return textOf(response.content).trim();
+  const text = await generateText({ system: SYSTEM, prompt, maxTokens: 1200 });
+  return text.trim();
 }
