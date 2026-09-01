@@ -44,6 +44,7 @@ export default function Home() {
 
   const [articleId, setArticleId] = useState<string | null>(null);
   const [articleStatus, setArticleStatus] = useState<string | null>(null);
+  const [wpPostId, setWpPostId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -52,6 +53,7 @@ export default function Home() {
   const [fixLoading, setFixLoading] = useState(false);
   const [altLoading, setAltLoading] = useState(false);
   const [seoLoading, setSeoLoading] = useState(false);
+  const [keywordIdeas, setKeywordIdeas] = useState<string[]>([]);
   const [fixPreview, setFixPreview] = useState<null | {
     fixed: Draft & { changes: string[] }; before: { overallScore: number }; after: Analysis;
   }>(null);
@@ -80,7 +82,7 @@ export default function Home() {
         focusKeyphrase: a.focusKeyphrase, secondaryKeyphrases: joinList(a.secondaryKeyphrases),
         slug: a.slug, tags: joinList(a.tags), categories: joinList(a.categories),
       });
-      setArticleId(a.id); setArticleStatus(a.status);
+      setArticleId(a.id); setArticleStatus(a.status); setWpPostId(a.wpPostId ?? null);
     }).catch(() => {});
   }, []);
 
@@ -120,6 +122,7 @@ export default function Home() {
         metaDescription: s.metaDescription || d.metaDescription,
         slug: s.slug || d.slug,
       }));
+      setKeywordIdeas(Array.isArray(data.keywordIdeas) ? data.keywordIdeas : []);
       setBanner({ kind: "success", text: data.source === "ai" ? "SEO generated with AI." : "SEO generated (rule-based — add an AI key for higher quality)." });
     } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
     finally { setSeoLoading(false); }
@@ -165,7 +168,7 @@ export default function Home() {
   async function runAutoFix() {
     setFixLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/autofix", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
+      const res = await fetch("/api/ai/optimize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
       const data = await res.json();
       if (!res.ok) { setBanner({ kind: "error", text: data.error || "Auto-fix failed." }); return; }
       setFixPreview({
@@ -211,6 +214,12 @@ export default function Home() {
   const tagList = splitList(draft.tags);
 
   const removeTag = (t: string) => set("tags", tagList.filter((x) => x !== t).join(", "));
+  const addTag = (t: string) => {
+    if (tagList.some((x) => x.toLowerCase() === t.toLowerCase())) return;
+    set("tags", [...tagList, t].join(", "));
+  };
+  const tagSet = new Set(tagList.map((t) => t.toLowerCase()));
+  const availableIdeas = keywordIdeas.filter((k) => !tagSet.has(k.toLowerCase()));
 
   return (
     <>
@@ -241,7 +250,7 @@ export default function Home() {
                   {altLoading && <span className="spinner" />} 🖼 Alt text{missingAlt > 0 ? ` (${missingAlt})` : ""}
                 </button>
                 <button className="btn primary" onClick={runAutoFix} disabled={fixLoading || !hasContent}>
-                  {fixLoading && <span className="spinner" />} ✨ Auto-fix with AI
+                  {fixLoading && <span className="spinner" />} ✨ Optimize to 90+
                 </button>
               </div>
 
@@ -355,6 +364,23 @@ export default function Home() {
             </div>
           </div>
 
+          {availableIdeas.length > 0 && (
+            <div className="card">
+              <div className="card-header">
+                Keyword ideas ({availableIdeas.length})
+                <button className="btn" style={{ padding: "2px 8px" }} onClick={() => availableIdeas.slice(0, 20).forEach(addTag)}>+ Add top 20</button>
+              </div>
+              <div className="card-body">
+                <div className="hint" style={{ marginBottom: 10 }}>Click a keyword to add it as a tag. Great for tag-heavy WordPress SEO and content ideas.</div>
+                <div className="seo-field-row" style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {availableIdeas.map((k) => (
+                    <button key={k} className="chip" style={{ cursor: "pointer" }} onClick={() => addTag(k)} title="Add as tag">+ {k}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {analysis && (
             <div className="card">
               <div className="card-header">Checks</div>
@@ -371,9 +397,9 @@ export default function Home() {
 
       {fixPreview && <FixPreviewModal preview={fixPreview} onApply={applyFix} onClose={() => setFixPreview(null)} />}
       {publishOpen && (
-        <PublishModal draft={draft} articleId={articleId} multiUser={authEnabled}
+        <PublishModal draft={draft} articleId={articleId} wpPostId={wpPostId} multiUser={authEnabled}
           onClose={() => setPublishOpen(false)}
-          onDone={(msg, status) => { setPublishOpen(false); if (status) setArticleStatus(status); setBanner({ kind: "success", text: msg }); }} />
+          onDone={(msg, status, newWpPostId) => { setPublishOpen(false); if (status) setArticleStatus(status); if (newWpPostId) setWpPostId(newWpPostId); setBanner({ kind: "success", text: msg }); }} />
       )}
     </>
   );
@@ -422,9 +448,9 @@ function FixPreviewModal({ preview, onApply, onClose }: {
   );
 }
 
-function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
-  draft: Draft; articleId: string | null; multiUser: boolean;
-  onClose: () => void; onDone: (msg: string, status?: string) => void;
+function PublishModal({ draft, articleId, wpPostId, multiUser, onClose, onDone }: {
+  draft: Draft; articleId: string | null; wpPostId: number | null; multiUser: boolean;
+  onClose: () => void; onDone: (msg: string, status?: string, wpPostId?: number) => void;
 }) {
   const [url, setUrl] = useState("");
   const [username, setUsername] = useState("");
@@ -456,16 +482,19 @@ function PublishModal({ draft, articleId, multiUser, onClose, onDone }: {
         title: draft.title, content: draft.content, metaDescription: draft.metaDescription,
         focusKeyphrase: draft.focusKeyphrase, secondaryKeyphrases: splitList(draft.secondaryKeyphrases),
         slug: draft.slug, tags: splitList(draft.tags), categories: splitList(draft.categories),
-        status, pingIndexNow, articleId,
+        status, pingIndexNow, articleId, wpPostId: wpPostId ?? undefined,
       };
       if (!multiUser) { body.url = url; body.username = username; body.applicationPassword = applicationPassword; }
       const res = await fetch("/api/wordpress/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
       const idx = data.indexNow?.ok ? " Search engines pinged via IndexNow." : "";
+      const verb = data.updated ? "Updated" : status === "publish" ? "Published" : "Saved";
+      const imgs = data.imagesHosted ? ` ${data.imagesHosted} image(s) uploaded to media.` : "";
       onDone(
-        status === "publish" ? `Published! ${data.post.link}.${idx}` : `Saved as draft in WordPress (#${data.post.id}).`,
+        status === "publish" ? `${verb}! ${data.post.link}.${idx}${imgs}` : `Saved as draft in WordPress (#${data.post.id}).${imgs}`,
         status === "publish" ? "published" : undefined,
+        data.wpPostId,
       );
     } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
   }

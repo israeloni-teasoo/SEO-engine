@@ -39,6 +39,24 @@ describe("analyze", () => {
     expect(inIntro?.status).toBe("good");
   });
 
+  it("flags an H1 inside the body via heading-hierarchy", () => {
+    const r = analyze({
+      title: "My Post",
+      focusKeyphrase: "widgets",
+      content: "<h1>Body H1</h1><p>Some content about widgets here to analyze.</p>",
+    });
+    expect(r.checks.find((c) => c.id === "heading-hierarchy")?.status).toBe("bad");
+  });
+
+  it("rewards the keyphrase near the front of the title", () => {
+    const r = analyze({
+      title: "Remote team productivity: the practical guide",
+      focusKeyphrase: "remote team productivity",
+      content: "<h2>Intro</h2><p>Remote team productivity matters for distributed teams.</p>",
+    });
+    expect(r.checks.find((c) => c.id === "keyphrase-title-position")?.status).toBe("good");
+  });
+
   it("flags a missing focus keyphrase", () => {
     const r = analyze({ ...goodPost, focusKeyphrase: "" });
     expect(r.checks.find((c) => c.id === "keyphrase-set")?.status).toBe("bad");

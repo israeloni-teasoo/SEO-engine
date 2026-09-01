@@ -43,8 +43,15 @@ transition words, and more.
 - **Rich block editor** — write with real headings, paragraphs, lists, quotes,
   links, and inline images (uploaded to your WordPress media library).
 - **Auto-generate SEO from your content** — one click fills the focus keyphrase,
-  a full set of tags, the meta description, and the slug. Free (rule-based) or
-  AI-enhanced.
+  a full set of tags, the meta description, and the slug, plus a pool of **100+
+  keyword/tag ideas** you can add with a click. Free (rule-based) or AI-enhanced.
+- **"Optimize to 90+"** — an iterative optimizer that rewrites the title, every
+  heading, intro, meta, slug, alt text, links, and keyphrase density in a loop
+  until the post scores 90+ (or reports exactly what still needs manual input).
+- **Rock-solid WordPress publishing** — updates the existing post instead of
+  duplicating, uploads inline/external images to the media library, sets a
+  featured image, creates tags/categories by name (race-safe), and retries
+  transient errors.
 - **Free AI, or bring your own** — Google Gemini free tier (recommended), Groq /
   OpenRouter free tiers, or paid Claude / OpenAI. Auto-detected from your env key.
 - **Live SEO + readability score** with a green/orange/red checklist.

@@ -1,14 +1,28 @@
 import { NextResponse } from "next/server";
-import { deriveSeo } from "@/lib/seo/derive";
+import { deriveSeo, deriveKeywordIdeas } from "@/lib/seo/derive";
 import { generateSeoWithAi } from "@/lib/ai/generate-seo";
 import { aiConfigured } from "@/lib/ai/provider";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-// Generate focus keyphrase, secondary keyphrases, tags, meta description and slug
-// from the written article. Uses AI when configured, otherwise a free rule-based
-// extractor. Always returns a result.
+const uniqueMerge = (...lists: string[][]): string[] => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const list of lists) {
+    for (const item of list) {
+      const key = item.trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(item.trim());
+    }
+  }
+  return out;
+};
+
+// Generate focus keyphrase, secondary keyphrases, tags, a big keyword-idea pool,
+// meta description and slug from the written article. AI when configured, else a
+// free rule-based extractor. Always returns a result.
 export async function POST(req: Request) {
   let body: { title?: string; content?: string; siteDomain?: string };
   try {
@@ -25,27 +39,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Write some content first." }, { status: 400 });
   }
 
-  // Rule-based baseline (also the fallback if AI fails).
   const rules = deriveSeo({ title, content, siteDomain });
+  const ruleIdeas = deriveKeywordIdeas({ title, content, siteDomain }, 150);
 
   if (aiConfigured()) {
     try {
       const ai = await generateSeoWithAi({ title, content });
-      // Backfill any empty AI fields from the rule-based result.
       return NextResponse.json({
         source: "ai",
         seo: {
           focusKeyphrase: ai.focusKeyphrase || rules.focusKeyphrase,
           secondaryKeyphrases: ai.secondaryKeyphrases.length ? ai.secondaryKeyphrases : rules.secondaryKeyphrases,
-          tags: ai.tags.length ? ai.tags : rules.tags,
+          tags: uniqueMerge(ai.tags, rules.tags).slice(0, 30),
           metaDescription: ai.metaDescription || rules.metaDescription,
           slug: ai.slug || rules.slug,
         },
+        keywordIdeas: uniqueMerge(ai.keywordIdeas, ai.tags, ruleIdeas).slice(0, 200),
       });
     } catch (e) {
-      return NextResponse.json({ source: "rules", seo: rules, aiError: (e as Error).message });
+      return NextResponse.json({ source: "rules", seo: rules, keywordIdeas: ruleIdeas, aiError: (e as Error).message });
     }
   }
 
-  return NextResponse.json({ source: "rules", seo: rules });
+  return NextResponse.json({ source: "rules", seo: rules, keywordIdeas: ruleIdeas });
 }

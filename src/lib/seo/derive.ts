@@ -124,6 +124,65 @@ function metaFrom(text: string, keyphrase: string): string {
   return desc;
 }
 
+// Modifiers used to expand seed topics into long-tail search keywords.
+const PREFIX_MODIFIERS = [
+  "how to", "best", "top", "why", "what is", "guide to", "benefits of",
+  "examples of", "types of", "tips for", "ways to", "learn",
+];
+const SUFFIX_MODIFIERS = [
+  "guide", "tips", "examples", "checklist", "template", "tools", "strategies",
+  "ideas", "best practices", "for beginners", "step by step", "explained",
+  "benefits", "mistakes", "trends", "software", "framework", "vs alternatives",
+];
+
+/**
+ * Generate a LARGE pool of tag & search-keyword ideas from the article — the
+ * base extracted phrases plus long-tail modifier combinations. Returns up to
+ * `limit` unique, Title-Cased suggestions with no external calls.
+ */
+export function deriveKeywordIdeas(
+  input: { title: string; content: string; siteDomain?: string },
+  limit = 120,
+): string[] {
+  const parsed = parseContent(input.content, input.siteDomain);
+  const boost = new Set<string>();
+  for (const w of `${input.title}`.toLowerCase().split(/\s+/)) {
+    const c = w.replace(/[^a-z0-9]/g, "");
+    if (c && !STOPWORDS.has(c) && c.length > 2) boost.add(c);
+  }
+  const ranked = rankPhrases(`${input.title}. ${parsed.text}`, boost);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (phrase: string) => {
+    const p = phrase.trim().replace(/\s+/g, " ");
+    const key = p.toLowerCase();
+    if (!p || seen.has(key) || key.length < 3) return;
+    seen.add(key);
+    out.push(titleCase(p));
+  };
+
+  // 1. The raw extracted phrases (broadest coverage).
+  for (const { phrase } of ranked) add(phrase);
+
+  // 2. Long-tail combinations from the strongest seed topics.
+  const seeds = ranked.slice(0, 12).map((r) => r.phrase);
+  for (const seed of seeds) {
+    for (const pre of PREFIX_MODIFIERS) add(`${pre} ${seed}`);
+    for (const suf of SUFFIX_MODIFIERS) add(`${seed} ${suf}`);
+    if (out.length > limit * 1.5) break;
+  }
+
+  // 3. Simple singular/plural variants of single-word seeds.
+  for (const { phrase } of ranked.slice(0, 20)) {
+    if (phrase.includes(" ")) continue;
+    if (phrase.endsWith("s")) add(phrase.slice(0, -1));
+    else add(`${phrase}s`);
+  }
+
+  return out.slice(0, limit);
+}
+
 /** Derive SEO metadata from a title + body with no external calls. */
 export function deriveSeo(input: { title: string; content: string; siteDomain?: string }): DerivedSeo {
   const parsed = parseContent(input.content, input.siteDomain);
