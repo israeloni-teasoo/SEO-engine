@@ -38,6 +38,8 @@ export interface CreatePostInput {
   tags?: number[];
   /** SEO plugin meta (via the companion bridge plugin). */
   meta?: SeoMeta;
+  /** Featured image media ID. */
+  featured_media?: number;
 }
 
 export interface WordPressTerm {
@@ -60,16 +62,23 @@ export interface CreatedPost {
 
 export class WordPressError extends Error {
   status: number;
-  constructor(message: string, status: number) {
+  /** Parsed `data` object from the WP error body, when present. */
+  data?: Record<string, unknown>;
+  code?: string;
+  constructor(message: string, status: number, extra?: { data?: Record<string, unknown>; code?: string }) {
     super(message);
     this.name = "WordPressError";
     this.status = status;
+    this.data = extra?.data;
+    this.code = extra?.code;
   }
 }
 
-function normalizeBaseUrl(url: string): string {
+export function normalizeBaseUrl(url: string): string {
   return url.trim().replace(/\/+$/, "");
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function authHeader(creds: WordPressCredentials): string {
   const pass = creds.applicationPassword.replace(/\s+/g, "");
@@ -88,39 +97,55 @@ async function wpFetch<T>(
 ): Promise<T> {
   const base = normalizeBaseUrl(creds.url);
   const endpoint = `${base}/wp-json${path}`;
-  let res: Response;
-  try {
-    res = await fetch(endpoint, {
-      ...init,
-      headers: {
-        Authorization: authHeader(creds),
-        "Content-Type": "application/json",
-        ...(init?.headers ?? {}),
-      },
-    });
-  } catch (e) {
-    throw new WordPressError(
-      `Could not reach ${base}. Check the site URL and that the REST API is enabled. (${(e as Error).message})`,
-      0,
-    );
-  }
+  const method = (init?.method ?? "GET").toUpperCase();
+  // Retrying a POST/PUT risks duplicate writes, so only retry safe GETs.
+  const maxAttempts = method === "GET" ? 3 : 1;
 
-  const bodyText = await res.text();
-  if (!res.ok) {
-    let message = `WordPress responded with ${res.status}.`;
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    let res: Response;
     try {
-      const parsed = JSON.parse(bodyText) as { message?: string; code?: string };
-      if (parsed.message) message = parsed.message;
-      if (res.status === 401) {
-        message = `Authentication failed. Check the username and Application Password. (${parsed.message ?? parsed.code ?? ""})`;
-      }
-    } catch {
-      /* keep default message */
+      res = await fetch(endpoint, {
+        ...init,
+        headers: {
+          Authorization: authHeader(creds),
+          "Content-Type": "application/json",
+          ...(init?.headers ?? {}),
+        },
+      });
+    } catch (e) {
+      lastErr = new WordPressError(
+        `Could not reach ${base}. Check the site URL and that the REST API is enabled. (${(e as Error).message})`,
+        0,
+      );
+      if (attempt < maxAttempts) { await sleep(300 * attempt); continue; }
+      throw lastErr;
     }
-    throw new WordPressError(message, res.status);
-  }
 
-  return (bodyText ? JSON.parse(bodyText) : {}) as T;
+    const bodyText = await res.text();
+    if (!res.ok) {
+      // Retry transient server errors for GETs.
+      if (res.status >= 500 && attempt < maxAttempts) { await sleep(300 * attempt); continue; }
+      let message = `WordPress responded with ${res.status}.`;
+      let data: Record<string, unknown> | undefined;
+      let code: string | undefined;
+      try {
+        const parsed = JSON.parse(bodyText) as { message?: string; code?: string; data?: Record<string, unknown> };
+        if (parsed.message) message = parsed.message;
+        code = parsed.code;
+        data = parsed.data;
+        if (res.status === 401) {
+          message = `Authentication failed. Check the username and Application Password. (${parsed.message ?? parsed.code ?? ""})`;
+        }
+      } catch {
+        /* keep default message */
+      }
+      throw new WordPressError(message, res.status, { data, code });
+    }
+
+    return (bodyText ? JSON.parse(bodyText) : {}) as T;
+  }
+  throw lastErr as Error;
 }
 
 /** Call the core `/wp/v2` namespace. `path` starts with "/", e.g. "/posts". */
@@ -139,11 +164,7 @@ export async function testConnection(
   return request<WordPressUser>(creds, "/users/me?context=edit");
 }
 
-/** Create (draft, publish, or schedule) a post. */
-export async function createPost(
-  creds: WordPressCredentials,
-  input: CreatePostInput,
-): Promise<CreatedPost> {
+function postPayload(input: CreatePostInput): Record<string, unknown> {
   const payload: Record<string, unknown> = {
     title: input.title,
     content: input.content,
@@ -155,11 +176,43 @@ export async function createPost(
   if (input.categories?.length) payload.categories = input.categories;
   if (input.tags?.length) payload.tags = input.tags;
   if (input.meta && Object.keys(input.meta).length) payload.meta = input.meta;
+  if (input.featured_media) payload.featured_media = input.featured_media;
+  return payload;
+}
 
+/** Create (draft, publish, or schedule) a post. */
+export async function createPost(
+  creds: WordPressCredentials,
+  input: CreatePostInput,
+): Promise<CreatedPost> {
   return request<CreatedPost>(creds, "/posts", {
     method: "POST",
-    body: JSON.stringify(payload),
+    body: JSON.stringify(postPayload(input)),
   });
+}
+
+/** Update an existing post in place (avoids creating a duplicate). */
+export async function updatePost(
+  creds: WordPressCredentials,
+  postId: number,
+  input: CreatePostInput,
+): Promise<CreatedPost> {
+  return request<CreatedPost>(creds, `/posts/${postId}`, {
+    method: "POST",
+    body: JSON.stringify(postPayload(input)),
+  });
+}
+
+/** Fetch a post (used to confirm a publish round-trip). */
+export async function getPost(
+  creds: WordPressCredentials,
+  postId: number,
+): Promise<CreatedPost | null> {
+  try {
+    return await request<CreatedPost>(creds, `/posts/${postId}?context=edit`);
+  } catch {
+    return null;
+  }
 }
 
 type Taxonomy = "categories" | "tags";
@@ -174,26 +227,49 @@ export async function resolveTerms(
   names: string[],
 ): Promise<number[]> {
   const cleaned = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
-  const ids: number[] = [];
 
-  for (const name of cleaned) {
-    const found = await request<WordPressTerm[]>(
-      creds,
-      `/${taxonomy}?search=${encodeURIComponent(name)}&per_page=20`,
-    );
-    const match = found.find(
-      (t) => t.name.toLowerCase() === name.toLowerCase(),
-    );
-    if (match) {
-      ids.push(match.id);
-      continue;
+  const resolveOne = async (name: string): Promise<number | null> => {
+    try {
+      const found = await request<WordPressTerm[]>(
+        creds,
+        `/${taxonomy}?search=${encodeURIComponent(name)}&per_page=100`,
+      );
+      const match = found.find((t) => t.name.toLowerCase() === name.toLowerCase());
+      if (match) return match.id;
+
+      // Create it; tolerate a race where it already exists (term_exists).
+      try {
+        const created = await request<WordPressTerm>(creds, `/${taxonomy}`, {
+          method: "POST",
+          body: JSON.stringify({ name }),
+        });
+        return created.id;
+      } catch (e) {
+        if (e instanceof WordPressError && (e.code === "term_exists" || e.status === 400)) {
+          const existingId = e.data?.term_id;
+          if (typeof existingId === "number") return existingId;
+          // Fall back to another exact-match search.
+          const retry = await request<WordPressTerm[]>(
+            creds,
+            `/${taxonomy}?search=${encodeURIComponent(name)}&per_page=100`,
+          );
+          const m = retry.find((t) => t.name.toLowerCase() === name.toLowerCase());
+          if (m) return m.id;
+        }
+        return null; // don't let one bad tag fail the whole publish
+      }
+    } catch {
+      return null;
     }
-    // Create the term if it doesn't exist yet.
-    const created = await request<WordPressTerm>(creds, `/${taxonomy}`, {
-      method: "POST",
-      body: JSON.stringify({ name }),
-    });
-    ids.push(created.id);
+  };
+
+  // Resolve in small parallel batches to keep it fast without hammering the API.
+  const ids: number[] = [];
+  const batchSize = 5;
+  for (let i = 0; i < cleaned.length; i += batchSize) {
+    const batch = cleaned.slice(i, i + batchSize);
+    const results = await Promise.all(batch.map(resolveOne));
+    for (const id of results) if (id !== null) ids.push(id);
   }
   return ids;
 }

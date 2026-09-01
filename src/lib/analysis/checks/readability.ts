@@ -145,6 +145,35 @@ export function readabilityChecks(parsed: ParsedContent): CheckResult[] {
     });
   }
 
+  // 6b. Heading hierarchy ------------------------------------------------------
+  {
+    let status: CheckResult["status"] = "good";
+    let message = "Heading structure is clean (H2/H3, no skipped levels).";
+    const bodyH1 = headings.filter((h) => h.level === 1).length;
+    let skipped = false;
+    let prev = 1; // the post title is the H1
+    for (const h of headings) {
+      if (h.level - prev > 1) skipped = true;
+      prev = h.level;
+    }
+    if (bodyH1 > 0) {
+      status = "bad";
+      message = `Found ${bodyH1} H1 heading(s) in the body. The title is the H1 — use H2/H3 inside the article.`;
+    } else if (skipped) {
+      status = "ok";
+      message = "Heading levels skip (e.g. H2 → H4). Keep the hierarchy sequential.";
+    }
+    checks.push({
+      id: "heading-hierarchy",
+      category: "readability",
+      label: "Heading hierarchy",
+      weight: 1,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
+
   // 7. Consecutive sentences starting the same way -----------------------------
   {
     const { maxRun } = THRESHOLDS.consecutiveSentences;

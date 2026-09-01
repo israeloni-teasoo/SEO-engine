@@ -94,19 +94,34 @@ export function seoChecks(
     badMsg: "Add the focus keyphrase to at least one H2/H3 subheading.",
   });
 
-  const altText = parsed.images.map((i) => i.alt).join(" ");
-  pushPlacement(checks, {
-    id: "keyphrase-in-image-alt",
-    label: "Keyphrase in image alt text",
-    weight: 0.5,
-    present: hasKeyphrase && parsed.images.length > 0 && has(altText, kp),
-    hasKeyphrase,
-    okMsg: "An image alt attribute includes the focus keyphrase.",
-    badMsg:
-      parsed.images.length === 0
-        ? "No images found. Add a relevant image with the keyphrase in its alt text."
-        : "Include the focus keyphrase in at least one image's alt text.",
-  });
+  {
+    const altText = parsed.images.map((i) => i.alt).join(" ");
+    let status: CheckResult["status"];
+    let message: string;
+    if (!hasKeyphrase) {
+      status = "bad";
+      message = "Set a focus keyphrase to run this check.";
+    } else if (parsed.images.length === 0) {
+      // Text-only posts shouldn't be hard-penalised; a relevant image is a bonus.
+      status = "ok";
+      message = "No images. Adding a relevant image with the keyphrase in its alt text is a bonus.";
+    } else if (has(altText, kp)) {
+      status = "good";
+      message = "An image alt attribute includes the focus keyphrase.";
+    } else {
+      status = "bad";
+      message = "Include the focus keyphrase in at least one image's alt text.";
+    }
+    checks.push({
+      id: "keyphrase-in-image-alt",
+      category: "seo",
+      label: "Keyphrase in image alt text",
+      weight: 0.5,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
 
   const slug = (input.slug ?? "").trim();
   pushPlacement(checks, {
@@ -170,6 +185,33 @@ export function seoChecks(
         lenStatus === "good"
           ? `Keyphrase is ${kpWords} word(s) — a good, focused length.`
           : `Keyphrase is ${kpWords} words. Aim for ${minWords}-${maxWords} words for a focused target.`,
+    });
+  }
+
+  // Keyphrase position in title ------------------------------------------------
+  if (hasKeyphrase && input.title) {
+    const t = input.title.toLowerCase();
+    const idx = t.indexOf(kp.toLowerCase());
+    let status: CheckResult["status"];
+    let message: string;
+    if (idx === -1) {
+      status = "bad";
+      message = "The focus keyphrase isn't in the title. Add it, ideally near the start.";
+    } else if (idx <= Math.max(3, t.length * 0.4)) {
+      status = "good";
+      message = "The focus keyphrase sits near the front of the title — strong signal.";
+    } else {
+      status = "ok";
+      message = "The focus keyphrase is in the title; moving it closer to the front helps.";
+    }
+    checks.push({
+      id: "keyphrase-title-position",
+      category: "seo",
+      label: "Keyphrase position in title",
+      weight: 1,
+      aiFixable: true,
+      status,
+      message,
     });
   }
 

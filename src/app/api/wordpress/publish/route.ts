@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   createPost,
+  updatePost,
   resolveTerms,
   WordPressError,
 } from "@/lib/wordpress/client";
@@ -9,6 +10,7 @@ import type {
   CreatePostInput,
   SeoMeta,
 } from "@/lib/wordpress/client";
+import { prepareContentForWordPress } from "@/lib/wordpress/prepare-content";
 import { toHtml } from "@/lib/markdown";
 import { submitUrls, hostFromUrl } from "@/lib/indexing/indexnow";
 import { authConfigured } from "@/lib/auth/session";
@@ -36,6 +38,8 @@ interface PublishBody extends Partial<WordPressCredentials> {
   pingIndexNow?: boolean;
   /** When set, marks this saved article as published on success. */
   articleId?: string;
+  /** Update this existing WordPress post instead of creating a new one. */
+  wpPostId?: number;
 }
 
 const multiUser = () => authConfigured() && dbConfigured();
@@ -94,6 +98,17 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Determine whether we're updating an already-published post (no duplicate).
+    let existingPostId: number | undefined = typeof body.wpPostId === "number" ? body.wpPostId : undefined;
+    let article = null;
+    if (multiUser() && body.articleId) {
+      article = await getArticle(body.articleId).catch(() => null);
+      if (article?.wpPostId) existingPostId = article.wpPostId;
+    }
+
+    // Host inline/external images in the WP media library and pick a featured image.
+    const prepared = await prepareContentForWordPress(creds, toHtml(body.content));
+
     const [tagIds, categoryIds] = await Promise.all([
       body.tags?.length ? resolveTerms(creds, "tags", body.tags) : Promise.resolve([]),
       body.categories?.length
@@ -107,14 +122,12 @@ export async function POST(req: Request) {
     if (body.focusKeyphrase) meta.seo_engine_focus_keyphrase = body.focusKeyphrase;
     if (body.secondaryKeyphrases?.length) {
       meta.seo_engine_secondary_keyphrases = body.secondaryKeyphrases
-        .map((k) => k.trim())
-        .filter(Boolean)
-        .join(",");
+        .map((k) => k.trim()).filter(Boolean).join(",");
     }
 
-    const post = await createPost(creds, {
+    const postInput = {
       title: body.title,
-      content: toHtml(body.content),
+      content: prepared.html,
       status: body.status ?? "draft",
       slug: body.slug || undefined,
       excerpt: body.metaDescription || undefined,
@@ -122,16 +135,18 @@ export async function POST(req: Request) {
       tags: tagIds,
       categories: categoryIds,
       meta,
-    });
+      featured_media: prepared.featuredMediaId,
+    };
+
+    const updated = Boolean(existingPostId);
+    const post = existingPostId
+      ? await updatePost(creds, existingPostId, postInput)
+      : await createPost(creds, postInput);
 
     // Mark the saved article published (multi-user).
     if (multiUser() && body.articleId && post.status === "publish") {
-      const article = await getArticle(body.articleId).catch(() => null);
-      if (article) {
-        await setArticleStatus(body.articleId, "published", {
-          wpPostId: post.id,
-          wpLink: post.link,
-        });
+      if (article ?? (await getArticle(body.articleId).catch(() => null))) {
+        await setArticleStatus(body.articleId, "published", { wpPostId: post.id, wpLink: post.link });
       }
     }
 
@@ -142,7 +157,14 @@ export async function POST(req: Request) {
       indexNow = await submitUrls(host, key, [post.link]);
     }
 
-    return NextResponse.json({ ok: true, post, indexNow });
+    return NextResponse.json({
+      ok: true,
+      post,
+      wpPostId: post.id,
+      updated,
+      imagesHosted: prepared.uploaded,
+      indexNow,
+    });
   } catch (e) {
     const status = e instanceof WordPressError ? e.status || 502 : 500;
     return NextResponse.json({ error: (e as Error).message }, { status });

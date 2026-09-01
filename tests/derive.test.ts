@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { deriveSeo, slugify } from "../src/lib/seo/derive";
+import { deriveSeo, deriveKeywordIdeas, slugify } from "../src/lib/seo/derive";
 
 describe("slugify", () => {
   it("makes a clean kebab slug", () => {
@@ -41,5 +41,24 @@ describe("deriveSeo (rule-based, no AI)", () => {
     const seo = deriveSeo({ title: "", content: "" });
     expect(seo.tags).toEqual([]);
     expect(seo.focusKeyphrase).toBe("");
+  });
+});
+
+describe("deriveKeywordIdeas", () => {
+  const article = {
+    title: "Remote Team Productivity Guide",
+    content: `<h2>Remote team productivity</h2>
+      <p>Remote team productivity depends on clear systems and async communication.
+      Distributed teams that document decisions move faster and reduce meetings.
+      Remote work rewards focused deep work and written communication.</p>`,
+  };
+
+  it("produces a large pool of unique ideas with long-tail variants", () => {
+    const ideas = deriveKeywordIdeas(article, 120);
+    expect(ideas.length).toBeGreaterThan(30);
+    // unique
+    expect(new Set(ideas.map((i) => i.toLowerCase())).size).toBe(ideas.length);
+    // includes modifier-based long-tail phrases
+    expect(ideas.some((i) => /how to|guide|tips|best/i.test(i))).toBe(true);
   });
 });
