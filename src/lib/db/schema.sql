@@ -50,12 +50,16 @@ CREATE TABLE IF NOT EXISTS articles (
   categories            text[] NOT NULL DEFAULT '{}',
   status                text NOT NULL DEFAULT 'draft'
                           CHECK (status IN ('draft', 'in_review', 'published')),
+  cover_image           text NOT NULL DEFAULT '',
   overall_score         int,
   wp_post_id            int,
   wp_link               text,
   created_at            timestamptz NOT NULL DEFAULT now(),
   updated_at            timestamptz NOT NULL DEFAULT now()
 );
+
+-- Additive migration for databases created before cover_image existed.
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS cover_image text NOT NULL DEFAULT '';
 
 CREATE INDEX IF NOT EXISTS articles_author_idx ON articles (author_id);
 CREATE INDEX IF NOT EXISTS articles_status_idx ON articles (status);

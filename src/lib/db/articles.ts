@@ -14,6 +14,7 @@ export interface ArticleRow {
   tags: string[];
   categories: string[];
   status: ArticleStatus;
+  coverImage: string;
   overallScore: number | null;
   wpPostId: number | null;
   wpLink: string | null;
@@ -36,6 +37,7 @@ export interface ArticleInput {
   slug: string;
   tags: string[];
   categories: string[];
+  coverImage?: string;
   overallScore?: number | null;
 }
 
@@ -46,11 +48,11 @@ export async function createArticle(
   const rows = await db()<ArticleRow[]>`
     INSERT INTO articles
       (author_id, title, content, meta_description, focus_keyphrase,
-       secondary_keyphrases, slug, tags, categories, overall_score)
+       secondary_keyphrases, slug, tags, categories, cover_image, overall_score)
     VALUES
       (${authorId}, ${input.title}, ${input.content}, ${input.metaDescription},
        ${input.focusKeyphrase}, ${input.secondaryKeyphrases}, ${input.slug},
-       ${input.tags}, ${input.categories}, ${input.overallScore ?? null})
+       ${input.tags}, ${input.categories}, ${input.coverImage ?? ""}, ${input.overallScore ?? null})
     RETURNING *`;
   return rows[0];
 }
@@ -69,6 +71,7 @@ export async function updateArticle(
       slug = ${input.slug},
       tags = ${input.tags},
       categories = ${input.categories},
+      cover_image = ${input.coverImage ?? ""},
       overall_score = ${input.overallScore ?? null},
       updated_at = now()
     WHERE id = ${id}

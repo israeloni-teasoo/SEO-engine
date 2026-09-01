@@ -48,6 +48,15 @@ transition words, and more.
 - **"Optimize to 90+"** — an iterative optimizer that rewrites the title, every
   heading, intro, meta, slug, alt text, links, and keyphrase density in a loop
   until the post scores 90+ (or reports exactly what still needs manual input).
+- **"Review fixes" (accept or ignore)** — instead of one-click, get every
+  suggestion individually: highlighted passages you click to see the proposed
+  wording, plus metadata suggestions, each with Accept / Ignore. Your original
+  writing stays unless you accept a change.
+- **Author-voice preservation** — every AI rewrite mirrors the original tone and
+  formality, and a deterministic pass strips em dashes and common "AI tells" so
+  the output reads like the author, not a bot.
+- **Cover / featured image** — add a cover by upload, URL, or by picking an image
+  already in the article; it's set as the WordPress featured image on publish.
 - **Rock-solid WordPress publishing** — updates the existing post instead of
   duplicating, uploads inline/external images to the media library, sets a
   featured image, creates tags/categories by name (race-safe), and retries

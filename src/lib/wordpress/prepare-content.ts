@@ -87,6 +87,64 @@ export async function prepareContentForWordPress(
   return { html: out, featuredMediaId, uploaded };
 }
 
+/**
+ * Resolve a chosen cover image into a WP media ID for use as the featured image.
+ * Uploads data-URL/external covers; for an image already on the WP site, tries to
+ * find its attachment by filename. Returns undefined if it can't be resolved.
+ */
+export async function resolveFeaturedMediaId(
+  creds: WordPressCredentials,
+  coverImage: string,
+): Promise<number | undefined> {
+  if (!coverImage) return undefined;
+  const host = siteHost(creds);
+
+  // Already hosted on the WP site: look it up by filename slug.
+  if (/^https?:\/\//i.test(coverImage)) {
+    try {
+      if (host && new URL(coverImage).host === host) {
+        const file = coverImage.split("/").pop()?.split("?")[0] ?? "";
+        const slug = file.replace(/\.[a-z0-9]+$/i, "");
+        if (slug) {
+          const base = normalizeBaseUrl(creds.url);
+          const res = await fetch(
+            `${base}/wp-json/wp/v2/media?search=${encodeURIComponent(slug)}&per_page=5`,
+            { headers: { Authorization: authHeaderFor(creds) } },
+          );
+          if (res.ok) {
+            const items = (await res.json()) as { id: number; source_url: string }[];
+            const exact = items.find((m) => m.source_url === coverImage) ?? items[0];
+            if (exact) return exact.id;
+          }
+        }
+        return undefined;
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  // Data URL or external image: upload it.
+  const loaded = await loadImage(coverImage);
+  if (!loaded) return undefined;
+  try {
+    const media = await uploadMedia(creds, {
+      filename: slugName("cover", loaded.mime),
+      contentType: loaded.mime,
+      data: loaded.data,
+    });
+    return media.id;
+  } catch {
+    return undefined;
+  }
+}
+
+// Small auth header helper (avoids exporting the one in client.ts).
+function authHeaderFor(creds: WordPressCredentials): string {
+  const pass = creds.applicationPassword.replace(/\s+/g, "");
+  return `Basic ${Buffer.from(`${creds.username}:${pass}`).toString("base64")}`;
+}
+
 async function loadImage(src: string): Promise<{ mime: string; data: Buffer } | null> {
   try {
     if (src.startsWith("data:")) {

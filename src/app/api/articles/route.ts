@@ -48,6 +48,7 @@ export async function POST(req: Request) {
       slug: String(b.slug ?? ""),
       tags: toArr(b.tags),
       categories: toArr(b.categories),
+      coverImage: String(b.coverImage ?? ""),
       overallScore: typeof b.overallScore === "number" ? b.overallScore : null,
     });
     return NextResponse.json({ article });
