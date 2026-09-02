@@ -6,6 +6,7 @@ import RichEditor from "./components/RichEditor";
 import ReviewPanel from "./components/ReviewPanel";
 import { applyContentEdit } from "./components/reviewApply";
 import { useMe, canPublishRole } from "./components/useMe";
+import { postJson, postForm, parseResponse } from "./components/api";
 import type { SuggestedEdit, EditField } from "@/lib/ai/suggest-edits";
 
 type Status = "good" | "ok" | "bad";
@@ -100,11 +101,8 @@ export default function Home() {
     if (!d.title.trim() && !d.content.trim()) { setAnalysis(null); return; }
     setAnalyzing(true);
     try {
-      const res = await fetch("/api/analyze", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(d)),
-      });
-      const data = await res.json();
-      if (res.ok) setAnalysis(data as Analysis);
+      const { ok, data } = await postJson<Analysis>("/api/analyze", payload(d));
+      if (ok) setAnalysis(data);
     } catch { /* ignore */ } finally { setAnalyzing(false); }
   }, [payload]);
 
@@ -117,12 +115,8 @@ export default function Home() {
   async function generateSeo() {
     setSeoLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/seo/generate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: draft.title, content: draft.content }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Could not generate SEO." }); return; }
+      const { ok, data } = await postJson("/api/seo/generate", { title: draft.title, content: draft.content });
+      if (!ok) { setBanner({ kind: "error", text: data.error || "Could not generate SEO." }); return; }
       const s = data.seo;
       setDraft((d) => ({
         ...d,
@@ -142,11 +136,10 @@ export default function Home() {
     setSaving(true); setBanner(null);
     try {
       const body = { ...payload(draft), coverImage, overallScore: analysis?.overallScore ?? null };
-      const res = await fetch(articleId ? `/api/articles/${articleId}` : "/api/articles", {
-        method: articleId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
-      });
-      const data = await res.json();
-      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Save failed." }); return null; }
+      const url = articleId ? `/api/articles/${articleId}` : "/api/articles";
+      const res = await fetch(url, { method: articleId ? "PUT" : "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const { ok, data } = await parseResponse(res);
+      if (!ok) { setBanner({ kind: "error", text: data.error || "Save failed." }); return null; }
       setArticleId(data.article.id); setArticleStatus(data.article.status);
       setBanner({ kind: "success", text: "Draft saved." });
       return data.article.id;
@@ -158,8 +151,8 @@ export default function Home() {
     const id = (await saveDraft()) ?? articleId;
     if (!id) return;
     const res = await fetch(`/api/articles/${id}/submit`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) { setBanner({ kind: "error", text: data.error }); return; }
+    const { ok, data } = await parseResponse(res);
+    if (!ok) { setBanner({ kind: "error", text: data.error }); return; }
     setArticleStatus("in_review");
     setBanner({ kind: "success", text: "Submitted for review. An editor will approve and publish it." });
   }
@@ -167,9 +160,8 @@ export default function Home() {
   async function getSuggestions() {
     setSuggestLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/suggest", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
-      const data = await res.json();
-      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Could not get suggestions." }); return; }
+      const { ok, data } = await postJson("/api/ai/suggest", payload(draft));
+      if (!ok) { setBanner({ kind: "error", text: data.error || "Could not get suggestions." }); return; }
       setSuggestions(data.suggestions as Suggestion[]);
     } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
     finally { setSuggestLoading(false); }
@@ -178,9 +170,8 @@ export default function Home() {
   async function runAutoFix() {
     setFixLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/optimize", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
-      const data = await res.json();
-      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Auto-fix failed." }); return; }
+      const { ok, data } = await postJson("/api/ai/optimize", payload(draft));
+      if (!ok) { setBanner({ kind: "error", text: data.error || "Auto-fix failed." }); return; }
       setFixPreview({
         fixed: {
           title: data.fixed.title, content: data.fixed.content, metaDescription: data.fixed.metaDescription,
@@ -197,9 +188,8 @@ export default function Home() {
   async function generateAltText() {
     setAltLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/alt-text", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: draft.content, focusKeyphrase: draft.focusKeyphrase, title: draft.title }) });
-      const data = await res.json();
-      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Alt text failed." }); return; }
+      const { ok, data } = await postJson("/api/ai/alt-text", { content: draft.content, focusKeyphrase: draft.focusKeyphrase, title: draft.title });
+      if (!ok) { setBanner({ kind: "error", text: data.error || "Alt text failed." }); return; }
       if ((data.generated ?? []).length === 0) { setBanner({ kind: "info", text: "No images were missing alt text." }); return; }
       set("content", data.content);
       setBanner({ kind: "success", text: `Added alt text to ${data.generated.length} image(s).` });
@@ -210,9 +200,8 @@ export default function Home() {
   async function reviewFixes() {
     setReviewLoading(true); setBanner(null);
     try {
-      const res = await fetch("/api/ai/suggest-edits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload(draft)) });
-      const data = await res.json();
-      if (!res.ok) { setBanner({ kind: "error", text: data.error || "Could not build suggestions." }); return; }
+      const { ok, data } = await postJson("/api/ai/suggest-edits", payload(draft));
+      if (!ok) { setBanner({ kind: "error", text: data.error || "Could not build suggestions." }); return; }
       if (!data.edits?.length) { setBanner({ kind: "info", text: "No suggestions — this looks well optimized already." }); return; }
       setReviewEdits(data.edits as SuggestedEdit[]);
     } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
@@ -240,18 +229,15 @@ export default function Home() {
 
   async function uploadCover(file: File) {
     setBanner(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/wordpress/media", { method: "POST", body: form });
-      const data = await res.json();
-      if (res.ok && data.url) {
-        setCoverImage(data.url);
-        setCoverMediaId(typeof data.id === "number" ? data.id : null);
-      } else {
-        setBanner({ kind: "error", text: data.error || "Cover upload failed." });
-      }
-    } catch (e) { setBanner({ kind: "error", text: (e as Error).message }); }
+    const form = new FormData();
+    form.append("file", file);
+    const { ok, data } = await postForm("/api/wordpress/media", form);
+    if (ok && data.url) {
+      setCoverImage(data.url);
+      setCoverMediaId(typeof data.id === "number" ? data.id : null);
+    } else {
+      setBanner({ kind: "error", text: data.error || "Cover upload failed." });
+    }
   }
 
   function applyFix() {
@@ -611,9 +597,8 @@ function PublishModal({ draft, articleId, wpPostId, coverImage, coverMediaId, mu
   async function test() {
     setBusy(true); setError(null); setTested(null);
     try {
-      const res = await fetch("/api/wordpress/test", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url, username, applicationPassword }) });
-      const data = await res.json();
-      if (!res.ok) setError(data.error);
+      const { ok, data } = await postJson("/api/wordpress/test", { url, username, applicationPassword });
+      if (!ok) setError(data.error);
       else {
         const b = data.bridge;
         const note = b?.installed ? ` Bridge active${b.seoPlugin ? ` (${b.seoPlugin})` : ""}.` : " Bridge not detected (install it for SEO meta).";
@@ -633,9 +618,8 @@ function PublishModal({ draft, articleId, wpPostId, coverImage, coverMediaId, mu
         coverImage: coverImage || undefined, coverMediaId: coverMediaId ?? undefined,
       };
       if (!multiUser) { body.url = url; body.username = username; body.applicationPassword = applicationPassword; }
-      const res = await fetch("/api/wordpress/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error); return; }
+      const { ok, data } = await postJson("/api/wordpress/publish", body);
+      if (!ok) { setError(data.error); return; }
       const idx = data.indexNow?.ok ? " Search engines pinged via IndexNow." : "";
       const verb = data.updated ? "Updated" : status === "publish" ? "Published" : "Saved";
       const imgs = data.imagesHosted ? ` ${data.imagesHosted} image(s) uploaded to media.` : "";
