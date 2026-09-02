@@ -39,7 +39,9 @@ export async function POST(req: Request) {
         categories: input.categories ?? [],
         siteDomain: input.siteDomain,
       },
-      { target: 90, maxIterations: 3 },
+      // 2 passes keeps well under serverless time limits while still reaching 90
+      // for most drafts (deterministic metadata backfill does the mechanical work).
+      { target: 90, maxIterations: 2 },
     );
 
     const { parsed: _p, ...afterLean } = result.analysis;

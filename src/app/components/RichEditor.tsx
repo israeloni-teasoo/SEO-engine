@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 import Link from "@tiptap/extension-link";
 import Placeholder from "@tiptap/extension-placeholder";
+import { postForm } from "./api";
 
 export default function RichEditor({
   value,
@@ -49,9 +50,8 @@ export default function RichEditor({
     try {
       const form = new FormData();
       form.append("file", file);
-      const res = await fetch("/api/wordpress/media", { method: "POST", body: form });
-      const data = await res.json();
-      if (res.ok && data.url) {
+      const { ok, data } = await postForm("/api/wordpress/media", form);
+      if (ok && data.url) {
         editor.chain().focus().setImage({ src: data.url, alt: "" }).run();
       }
     } finally {

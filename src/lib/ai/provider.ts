@@ -40,6 +40,18 @@ export function aiConfigured(): boolean {
   return activeProvider() !== null;
 }
 
+/** fetch with an abort timeout, converting a hang into a clean error. */
+async function fetchTimeout(url: string, init: RequestInit, ms = 55000): Promise<Response> {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(ms) });
+  } catch (e) {
+    if ((e as Error).name === "TimeoutError" || (e as Error).name === "AbortError") {
+      throw new Error("The AI provider took too long to respond. Try again, or shorten the article.");
+    }
+    throw e;
+  }
+}
+
 function modelFor(p: AiProviderName): string {
   if (process.env.SEO_AI_MODEL) return process.env.SEO_AI_MODEL;
   if (p === "gemini") return "gemini-3.6-flash";
@@ -134,7 +146,7 @@ async function geminiRequest(
   allowModelSwap = true,
 ): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey()}`;
-  const res = await fetch(url, {
+  const res = await fetchTimeout(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -214,7 +226,7 @@ function openaiBase(): string {
 }
 
 async function openaiText(model: string, opts: GenerateOpts, maxTokens: number): Promise<string> {
-  const res = await fetch(`${openaiBase()}/chat/completions`, {
+  const res = await fetchTimeout(`${openaiBase()}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({
@@ -237,7 +249,7 @@ async function openaiVision(
 ): Promise<string> {
   const content: unknown[] = [{ type: "text", text: prompt }];
   for (const img of images) content.push({ type: "image_url", image_url: { url: img.url } });
-  const res = await fetch(`${openaiBase()}/chat/completions`, {
+  const res = await fetchTimeout(`${openaiBase()}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.OPENAI_API_KEY}` },
     body: JSON.stringify({
