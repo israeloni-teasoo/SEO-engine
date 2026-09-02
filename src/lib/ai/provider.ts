@@ -42,7 +42,7 @@ export function aiConfigured(): boolean {
 
 function modelFor(p: AiProviderName): string {
   if (process.env.SEO_AI_MODEL) return process.env.SEO_AI_MODEL;
-  if (p === "gemini") return "gemini-2.0-flash";
+  if (p === "gemini") return "gemini-3.6-flash";
   if (p === "anthropic") return "claude-opus-5";
   return "gpt-4o-mini";
 }
@@ -122,24 +122,51 @@ async function anthropicVision(
 
 // ---------------- Google Gemini (free tier) ----------------
 
-async function geminiText(model: string, opts: GenerateOpts, maxTokens: number): Promise<string> {
+/**
+ * POST to Gemini generateContent. If the model 404s because it was retired,
+ * Google's error names the replacement ("...use models/gemini-3.6-flash...") —
+ * we extract it and retry once, so model deprecations self-heal.
+ */
+async function geminiRequest(
+  model: string,
+  body: Record<string, unknown>,
+  label: string,
+  allowModelSwap = true,
+): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey()}`;
-  const body: Record<string, unknown> = {
-    systemInstruction: { parts: [{ text: opts.system }] },
-    contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
-    generationConfig: {
-      maxOutputTokens: maxTokens,
-      ...(opts.json ? { responseMimeType: "application/json" } : {}),
-    },
-  };
   const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
-  if (!res.ok) throw new Error(`Gemini error (${res.status}): ${await res.text()}`);
-  const json = await res.json();
-  return geminiExtract(json);
+  if (!res.ok) {
+    const text = await res.text();
+    if (res.status === 404 && allowModelSwap) {
+      const recommended = text.match(/use\s+models\/([a-zA-Z0-9.\-]+)/)?.[1];
+      if (recommended && recommended !== model) {
+        return geminiRequest(recommended, body, label, false);
+      }
+    }
+    throw new Error(
+      `${label} (${res.status}): ${text}${res.status === 404 ? " — set SEO_AI_MODEL to a current Gemini model." : ""}`,
+    );
+  }
+  return geminiExtract(await res.json());
+}
+
+async function geminiText(model: string, opts: GenerateOpts, maxTokens: number): Promise<string> {
+  return geminiRequest(
+    model,
+    {
+      systemInstruction: { parts: [{ text: opts.system }] },
+      contents: [{ role: "user", parts: [{ text: opts.prompt }] }],
+      generationConfig: {
+        maxOutputTokens: maxTokens,
+        ...(opts.json ? { responseMimeType: "application/json" } : {}),
+      },
+    },
+    "Gemini error",
+  );
 }
 
 async function geminiVision(
@@ -150,18 +177,15 @@ async function geminiVision(
     const inlined = await fetchAsInlineData(img.url);
     if (inlined) parts.push({ inline_data: inlined });
   }
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${geminiKey()}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return geminiRequest(
+    model,
+    {
       systemInstruction: { parts: [{ text: system }] },
       contents: [{ role: "user", parts }],
       generationConfig: { maxOutputTokens: maxTokens, responseMimeType: "application/json" },
-    }),
-  });
-  if (!res.ok) throw new Error(`Gemini vision error (${res.status}): ${await res.text()}`);
-  return geminiExtract(await res.json());
+    },
+    "Gemini vision error",
+  );
 }
 
 function geminiExtract(json: unknown): string {
