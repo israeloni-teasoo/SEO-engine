@@ -22,7 +22,10 @@ STYLE — match the ORIGINAL AUTHOR, do not impose an "AI" voice:
 - Do not add emojis the author didn't use. Do not start sentences with the same
   filler repeatedly. Keep contractions if the author uses them.
 - Preserve the author's meaning and facts exactly. Improve clarity and SEO
-  without changing what they are saying or their personality.`.trim();
+  without changing what they are saying or their personality.
+- Fix all grammar, spelling, punctuation, and sentence-structure errors:
+  subject-verb agreement, verb tense consistency, run-ons, fragments, misplaced
+  modifiers, and awkward phrasing. Keep the corrections in the author's voice.`.trim();
 
 /**
  * Remove em/en dashes and other subtle AI markers from generated text. Safe to

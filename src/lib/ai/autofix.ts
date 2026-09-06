@@ -22,12 +22,17 @@ description, the slug, image alt text, tags, category, and the keyphrases.
 Hard requirements (each maps to a scored check — satisfy ALL of them):
 - PRESERVE the content format. If the body is HTML, return HTML; if Markdown, return Markdown.
 - Keep all real facts, data, names, and links. Never fabricate statistics, quotes, or sources.
-- TITLE: compelling, ~50-60 characters, with the focus keyphrase near the FRONT.
+- TITLE / HEADLINE: compelling, ~50-60 characters, focus keyphrase near the FRONT. Make it
+  click-worthy: include at least one POWER word (e.g. proven, essential, ultimate, critical)
+  and one EMOTIONAL word (e.g. surprising, risky, urgent), mix common and uncommon words, and
+  give it a clear positive or negative angle rather than a flat, neutral tone.
 - HEADINGS: use clear H2/H3 subheadings (never an H1 inside the body — the title is the H1);
-  keep the hierarchy sequential; put the focus keyphrase in at least one subheading and a
-  secondary keyphrase in another. Add subheadings if the draft lacks them (aim for one every
-  ~200-300 words).
+  keep the hierarchy sequential; work the focus keyphrase into about a THIRD of the subheadings
+  (at least two) and a secondary keyphrase into another. Add subheadings if the draft lacks
+  them (aim for one every ~200-300 words).
 - INTRO: use the focus keyphrase within the first 100 words.
+- KEYPHRASE DISTRIBUTION: make sure the focus keyphrase (or a close variant) appears in EVERY
+  major section of the article, not clustered in one place.
 - KEYPHRASE DENSITY: 0.8-2.0% for the focus keyphrase — enough to signal relevance, never stuffed.
 - Ensure EACH secondary keyphrase appears at least once in the body.
 - READABILITY: short sentences (few over 20 words), active voice (<10% passive), 30%+ of

@@ -11,6 +11,7 @@ import type {
   SeoMeta,
 } from "@/lib/wordpress/client";
 import { prepareContentForWordPress, resolveFeaturedMediaId } from "@/lib/wordpress/prepare-content";
+import { htmlToGutenberg } from "@/lib/wordpress/gutenberg";
 import { toHtml } from "@/lib/markdown";
 import { submitUrls, hostFromUrl } from "@/lib/indexing/indexnow";
 import { authConfigured } from "@/lib/auth/session";
@@ -120,11 +121,13 @@ export async function POST(req: Request) {
     }
     if (!featuredMediaId) featuredMediaId = prepared.featuredMediaId;
 
+    // Default category (ESG) when none is chosen; override with DEFAULT_CATEGORY.
+    const categoryNames = body.categories?.length
+      ? body.categories
+      : [process.env.DEFAULT_CATEGORY || "ESG"];
     const [tagIds, categoryIds] = await Promise.all([
       body.tags?.length ? resolveTerms(creds, "tags", body.tags) : Promise.resolve([]),
-      body.categories?.length
-        ? resolveTerms(creds, "categories", body.categories)
-        : Promise.resolve([]),
+      resolveTerms(creds, "categories", categoryNames),
     ]);
 
     const meta: SeoMeta = {};
@@ -138,7 +141,7 @@ export async function POST(req: Request) {
 
     const postInput = {
       title: body.title,
-      content: prepared.html,
+      content: htmlToGutenberg(prepared.html),
       status: body.status ?? "draft",
       slug: body.slug || undefined,
       excerpt: body.metaDescription || undefined,

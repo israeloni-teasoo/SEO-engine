@@ -55,6 +55,7 @@ export function parseContent(rawContent: string, siteDomain?: string): ParsedCon
   const words = tokenizeWords(text);
   const sentences = splitSentences(text);
   const firstParagraph = paragraphs[0] ?? text;
+  const sections = collectSections(root);
 
   return {
     text,
@@ -62,11 +63,35 @@ export function parseContent(rawContent: string, siteDomain?: string): ParsedCon
     sentences,
     paragraphs,
     headings,
+    sections,
     images,
     links,
     firstParagraph,
     wordCount: words.length,
   };
+}
+
+/** Group body text into sections; a new section starts at each H2-H6 heading. */
+function collectSections(root: HTMLElement): string[] {
+  const nodes = root.querySelectorAll("h1,h2,h3,h4,h5,h6,p,li,blockquote");
+  const sections: string[] = [];
+  let current: string[] = [];
+  const flush = () => {
+    const t = normalizeWhitespace(current.join(" "));
+    if (t) sections.push(t);
+    current = [];
+  };
+  for (const n of nodes) {
+    const tag = n.tagName?.toLowerCase() ?? "";
+    if (/^h[2-6]$/.test(tag)) {
+      flush();
+      current.push(n.text);
+    } else {
+      current.push(n.text);
+    }
+  }
+  flush();
+  return sections.length ? sections : [normalizeWhitespace(root.text)].filter(Boolean);
 }
 
 function markdownToHtml(content: string): string {
