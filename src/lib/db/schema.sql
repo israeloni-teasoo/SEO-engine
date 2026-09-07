@@ -1,5 +1,9 @@
--- SEO Engine — multi-user schema (PostgreSQL / Neon).
+-- SEO Engine — multi-user schema (PostgreSQL / Supabase).
 -- Apply with: npm run db:setup   (see scripts/db-setup.mjs)
+
+-- gen_random_uuid() lives in pgcrypto (pre-enabled on Supabase; this makes it
+-- explicit so the schema applies on any Postgres).
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS users (
   id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
