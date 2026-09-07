@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { exchangeCode, getProfile } from "@/lib/auth/google";
 import { getUserByEmail, createUser, updateProfile } from "@/lib/db/users";
-import { roleForNewUser, emailDomainAllowed } from "@/lib/auth/provision";
+import { registrationDecision, emailDomainAllowed } from "@/lib/auth/provision";
+import { markInviteAccepted } from "@/lib/db/invites";
+import { logActivity } from "@/lib/db/activity";
 import { createSessionToken, sessionCookieOptions, SESSION_COOKIE } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
@@ -34,12 +36,16 @@ export async function GET(req: Request) {
 
     let user = await getUserByEmail(email);
     if (!user) {
+      const decision = await registrationDecision(email);
+      if (!decision.allowed) return back("error=not_invited");
       user = await createUser({
         email,
         name: profile.name ?? email.split("@")[0],
-        role: await roleForNewUser(email),
+        role: decision.role,
         image: profile.picture ?? null,
       });
+      if (decision.inviteId) await markInviteAccepted(decision.inviteId);
+      await logActivity({ userId: user.id, action: "created", detail: `account created via Google as ${user.role}` });
     } else {
       if (user.status === "disabled") return back("error=account_disabled");
       await updateProfile(user.id, { name: profile.name, image: profile.picture });

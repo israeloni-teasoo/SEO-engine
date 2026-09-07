@@ -189,6 +189,27 @@ Manage people under **Admin → Team members** (promote/demote, disable accounts
 > can **AI-adapt** it into a native post or post the **article as-is**
 > (headline + summary) — your choice, from the same draft.
 
+### f. Inviting people (email) & who-did-what
+
+- The app is **invite-only** by default: only emails you invite (or `ADMIN_EMAILS`,
+  or the very first account) can register. Set `OPEN_REGISTRATION=true` to allow
+  open self-signup instead.
+- **Admin → Invite a team member:** enter an email and role. If email is
+  configured they get an invitation; otherwise you copy the invite link and send
+  it yourself. They accept and sign in with **Google or a password**.
+- **Emails** use [Resend](https://resend.com) (free tier): set `RESEND_API_KEY`
+  and `EMAIL_FROM` (a verified sender). Optional — invites work without it.
+- **Admin → Recent activity** shows who created, submitted, published, changed,
+  or deleted what.
+
+### g. Managing published WordPress posts
+
+Under **Articles → Published**, editors/admins can, per post:
+- **Edit** — opens it in the editor; re-publishing **updates the same WordPress
+  post** (never creates a duplicate).
+- **Unpublish / Publish** — flips the WordPress post between draft and published.
+- **Delete** — removes the post from WordPress (for something posted by mistake).
+
 ---
 
 ## Quick checklist

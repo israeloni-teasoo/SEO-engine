@@ -21,6 +21,9 @@ interface Settings {
   siteDomain: string;
 }
 
+interface Invite { id: string; email: string; role: Role; accepted: boolean; createdAt: string; }
+interface Activity { id: string; action: string; detail: string; userName: string; articleTitle: string | null; createdAt: string; }
+
 export default function AdminPage() {
   const { me, authEnabled, loading } = useMe();
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -29,10 +32,45 @@ export default function AdminPage() {
   const [wpPassword, setWpPassword] = useState("");
   const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
 
+  const [invites, setInvites] = useState<Invite[]>([]);
+  const [emailReady, setEmailReady] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<Role>("author");
+  const [activity, setActivity] = useState<Activity[]>([]);
+
   const loadUsers = useCallback(async () => {
     const r = await fetch("/api/admin/users");
     if (r.ok) setUsers((await r.json()).users);
   }, []);
+
+  const loadInvites = useCallback(async () => {
+    const r = await fetch("/api/admin/invites");
+    if (r.ok) { const d = await r.json(); setInvites(d.invites); setEmailReady(d.emailConfigured); }
+  }, []);
+
+  const loadActivity = useCallback(async () => {
+    const r = await fetch("/api/admin/activity");
+    if (r.ok) setActivity((await r.json()).activity);
+  }, []);
+
+  async function sendInvite() {
+    setMsg(null);
+    const r = await fetch("/api/admin/invites", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+    });
+    const d = await r.json();
+    if (!r.ok) { setMsg({ kind: "error", text: d.error }); return; }
+    setInviteEmail("");
+    if (d.emailed) setMsg({ kind: "success", text: `Invitation emailed to ${d.invite.email}.` });
+    else setMsg({ kind: "success", text: `Invite created. Email isn't configured, so share this link: ${d.link}` });
+    loadInvites();
+  }
+
+  async function revokeInvite(id: string) {
+    await fetch(`/api/admin/invites/${id}`, { method: "DELETE" });
+    loadInvites();
+  }
 
   const loadSettings = useCallback(async () => {
     const r = await fetch("/api/admin/settings");
@@ -47,8 +85,10 @@ export default function AdminPage() {
     if (me && isAdminRole(me.role)) {
       loadUsers();
       loadSettings();
+      loadInvites();
+      loadActivity();
     }
-  }, [me, loadUsers, loadSettings]);
+  }, [me, loadUsers, loadSettings, loadInvites, loadActivity]);
 
   async function changeUser(id: string, patch: { role?: Role; status?: "active" | "disabled" }) {
     setMsg(null);
@@ -110,6 +150,39 @@ export default function AdminPage() {
       <AppHeader me={me} authEnabled={authEnabled} active="admin" />
       <div className="page">
         {msg && <div className={`banner ${msg.kind}`}>{msg.text}</div>}
+
+        <div className="card">
+          <div className="card-header">Invite a team member</div>
+          <div className="card-body">
+            {!emailReady && (
+              <div className="hint" style={{ marginBottom: 10 }}>Email isn&apos;t configured (set RESEND_API_KEY + EMAIL_FROM). You can still create invites and share the link manually.</div>
+            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <input type="text" value={inviteEmail} placeholder="person@company.com" onChange={(e) => setInviteEmail(e.target.value)} style={{ flex: "1 1 220px" }} />
+              <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)} style={{ width: "auto" }}>
+                <option value="author">author</option>
+                <option value="editor">editor</option>
+                <option value="admin">admin</option>
+              </select>
+              <button className="btn primary" onClick={sendInvite} disabled={!inviteEmail.trim()}>Send invite</button>
+            </div>
+            {invites.length > 0 && (
+              <table className="table" style={{ marginTop: 14 }}>
+                <thead><tr><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+                <tbody>
+                  {invites.map((i) => (
+                    <tr key={i.id}>
+                      <td>{i.email}</td>
+                      <td><span className={`role-badge ${i.role}`}>{i.role}</span></td>
+                      <td>{i.accepted ? <span className="status-pill published">accepted</span> : <span className="status-pill in_review">pending</span>}</td>
+                      <td>{!i.accepted && <button className="btn" style={{ padding: "3px 10px" }} onClick={() => revokeInvite(i.id)}>Revoke</button>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
 
         <div className="card">
           <div className="card-header">Team members</div>
@@ -182,6 +255,29 @@ export default function AdminPage() {
                   <button className="btn primary" onClick={saveSettings} disabled={!encReady}>Save settings</button>
                 </div>
               </>
+            )}
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header">Recent activity</div>
+          <div className="card-body" style={{ padding: 0 }}>
+            {activity.length === 0 ? (
+              <div className="card-body"><div className="hint">No activity yet.</div></div>
+            ) : (
+              <table className="table">
+                <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
+                <tbody>
+                  {activity.map((a) => (
+                    <tr key={a.id}>
+                      <td>{new Date(a.createdAt).toLocaleString()}</td>
+                      <td>{a.userName}</td>
+                      <td>{a.action.replace(/_/g, " ")}</td>
+                      <td>{a.articleTitle ? `${a.articleTitle}${a.detail ? " — " : ""}` : ""}{a.detail}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
