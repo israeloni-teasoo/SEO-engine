@@ -5,6 +5,10 @@ export const metadata: Metadata = {
   title: "SEO Engine — Blog Post Optimizer",
   description:
     "Analyze, score, and auto-fix blog posts for SEO and readability, then publish straight to WordPress.",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg",
+  },
 };
 
 export default function RootLayout({

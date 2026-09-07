@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Apply the database schema to the Postgres/Neon database in DATABASE_URL.
+// Apply the database schema to the Postgres/Supabase database in DATABASE_URL.
 // Usage: DATABASE_URL=postgres://... npm run db:setup
 import postgres from "postgres";
 import { readFileSync } from "node:fs";

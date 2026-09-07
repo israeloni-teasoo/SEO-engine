@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import AppHeader from "../components/AppHeader";
+import AppShell from "../components/AppShell";
 import { useMe, isAdminRole, type Role } from "../components/useMe";
 
 interface AdminUser {
@@ -130,24 +130,21 @@ export default function AdminPage() {
   if (loading) return null;
   if (!authEnabled) {
     return (
-      <>
-        <AppHeader me={me} authEnabled={authEnabled} active="admin" />
+      <AppShell me={me} authEnabled={authEnabled} active="admin">
         <div className="page"><div className="banner info">Accounts are not enabled on this deployment.</div></div>
-      </>
+      </AppShell>
     );
   }
   if (!me || !isAdminRole(me.role)) {
     return (
-      <>
-        <AppHeader me={me} authEnabled={authEnabled} active="admin" />
+      <AppShell me={me} authEnabled={authEnabled} active="admin">
         <div className="page"><div className="banner error">Admins only.</div></div>
-      </>
+      </AppShell>
     );
   }
 
   return (
-    <>
-      <AppHeader me={me} authEnabled={authEnabled} active="admin" />
+    <AppShell me={me} authEnabled={authEnabled} active="admin">
       <div className="page">
         {msg && <div className={`banner ${msg.kind}`}>{msg.text}</div>}
 
@@ -282,6 +279,6 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
-    </>
+    </AppShell>
   );
 }

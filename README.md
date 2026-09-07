@@ -41,7 +41,9 @@ transition words, and more.
 ## Features
 
 - **Rich block editor** — write with real headings, paragraphs, lists, quotes,
-  links, and inline images (uploaded to your WordPress media library).
+  code, dividers, links, and inline images (uploaded to your WordPress media
+  library). Press **`/`** for a slash menu to insert any block — Notion/Hashnode
+  style — with arrow-key + Enter selection.
 - **Auto-generate SEO from your content** — one click fills the focus keyphrase,
   a full set of tags, the meta description, and the slug, plus a pool of **100+
   keyword/tag ideas** you can add with a click. Free (rule-based) or AI-enhanced.
@@ -79,7 +81,8 @@ transition words, and more.
   roles, an approval workflow (authors submit, editors publish), an **activity
   log** ("who posted what"), and a **Manage published posts** view — edit in
   place, switch draft/publish, or delete on WordPress. Off by default — turn it
-  on with `DATABASE_URL` + `AUTH_SECRET`. See [`docs/SETUP.md`](docs/SETUP.md).
+  on with `DATABASE_URL` (Supabase Postgres) + `AUTH_SECRET`. See
+  [`docs/SETUP.md`](docs/SETUP.md).
 
 **New here? Read [`docs/SETUP.md`](docs/SETUP.md) — it lists exactly what to
 provide (keys, plugin, LinkedIn app) and how to deploy to Vercel + a custom

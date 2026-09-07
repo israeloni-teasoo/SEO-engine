@@ -137,13 +137,19 @@ By default the app is single-user (no login). To let your staff sign in with
 roles and an approval workflow, set **both** `AUTH_SECRET` and `DATABASE_URL`.
 With only one set, the app stays single-user (this prevents accidental lockout).
 
-### a. Database (Neon)
+### a. Database (Supabase)
 
-1. Create a free Postgres database at <https://neon.tech> and copy its connection
-   string into `DATABASE_URL`.
+1. Create a free project at <https://supabase.com>. In **Project Settings →
+   Database → Connection string**, copy a URI into `DATABASE_URL`:
+   - **On Vercel / serverless, use the Transaction pooler** (host
+     `...pooler.supabase.com`, port **6543**). The app auto-disables prepared
+     statements for it, so it just works.
+   - For local one-off scripts you can use the Session pooler / Direct
+     connection (port 5432) too.
 2. Apply the schema once: `DATABASE_URL=... npm run db:setup` (locally), or run it
-   against your production DB. It creates the `users`, `articles`,
-   `app_settings`, and `linkedin_connections` tables.
+   against your production DB. It enables `pgcrypto` and creates the `users`,
+   `articles`, `app_settings`, `linkedin_connections`, `invites`, and `activity`
+   tables. It's idempotent — safe to re-run after upgrades.
 
 ### b. Secrets
 

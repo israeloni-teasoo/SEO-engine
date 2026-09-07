@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import AppHeader from "../components/AppHeader";
+import AppShell from "../components/AppShell";
 import { useMe, canReviewRole } from "../components/useMe";
 
 interface ArticleRow {
@@ -53,18 +53,16 @@ export default function ArticlesPage() {
   if (loading) return null;
   if (!authEnabled || !me) {
     return (
-      <>
-        <AppHeader me={me} authEnabled={authEnabled} active="articles" />
+      <AppShell me={me} authEnabled={authEnabled} active="articles">
         <div className="page"><div className="banner info">Saved articles require accounts to be enabled.</div></div>
-      </>
+      </AppShell>
     );
   }
 
   const canReview = canReviewRole(me.role);
 
   return (
-    <>
-      <AppHeader me={me} authEnabled={authEnabled} active="articles" />
+    <AppShell me={me} authEnabled={authEnabled} active="articles">
       <div className="page">
         {msg && <div className="banner info">{msg}</div>}
         <div className="card">
@@ -127,6 +125,6 @@ export default function ArticlesPage() {
           </div>
         </div>
       </div>
-    </>
+    </AppShell>
   );
 }

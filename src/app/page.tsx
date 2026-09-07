@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import AppHeader from "./components/AppHeader";
+import AppShell from "./components/AppShell";
 import RichEditor from "./components/RichEditor";
 import ReviewPanel from "./components/ReviewPanel";
 import { applyContentEdit } from "./components/reviewApply";
@@ -265,9 +265,7 @@ export default function Home() {
   const availableIdeas = keywordIdeas.filter((k) => !tagSet.has(k.toLowerCase()));
 
   return (
-    <>
-      <AppHeader me={me} authEnabled={authEnabled} active="editor" />
-
+    <AppShell me={me} authEnabled={authEnabled} active="editor">
       <div className="layout">
         {/* ---- Editor column ---- */}
         <div>
@@ -481,7 +479,7 @@ export default function Home() {
           onClose={() => setPublishOpen(false)}
           onDone={(msg, status, newWpPostId) => { setPublishOpen(false); if (status) setArticleStatus(status); if (newWpPostId) setWpPostId(newWpPostId); setBanner({ kind: "success", text: msg }); }} />
       )}
-    </>
+    </AppShell>
   );
 }
 
