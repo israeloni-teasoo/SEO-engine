@@ -19,7 +19,8 @@ import { dbConfigured } from "@/lib/db/client";
 import { requireUser, authErrorResponse, AuthError } from "@/lib/auth/guard";
 import { canPublish } from "@/lib/auth/rbac";
 import { getWordPressConfig } from "@/lib/db/settings";
-import { getArticle, setArticleStatus } from "@/lib/db/articles";
+import { getArticle, markArticlePublished } from "@/lib/db/articles";
+import { logActivity } from "@/lib/db/activity";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -59,10 +60,12 @@ export async function POST(req: Request) {
 
   // Resolve credentials + enforce permissions depending on mode.
   let creds: WordPressCredentials | null = null;
+  let publisherId: string | null = null;
   try {
     if (multiUser()) {
       // Multi-user: only editors/admins publish; use the shared company config.
       const user = await requireUser(req);
+      publisherId = user.sub;
       if (!canPublish(user)) {
         throw new AuthError(
           "Authors can't publish directly. Submit the article for review instead.",
@@ -157,10 +160,11 @@ export async function POST(req: Request) {
       ? await updatePost(creds, existingPostId, postInput)
       : await createPost(creds, postInput);
 
-    // Mark the saved article published (multi-user).
+    // Mark the saved article published (multi-user), recording who published it.
     if (multiUser() && body.articleId && post.status === "publish") {
       if (article ?? (await getArticle(body.articleId).catch(() => null))) {
-        await setArticleStatus(body.articleId, "published", { wpPostId: post.id, wpLink: post.link });
+        await markArticlePublished(body.articleId, { wpPostId: post.id, wpLink: post.link, publishedBy: publisherId });
+        await logActivity({ userId: publisherId, action: "published", articleId: body.articleId, detail: updated ? "updated on WordPress" : "published to WordPress" });
       }
     }
 

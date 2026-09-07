@@ -61,5 +61,33 @@ CREATE TABLE IF NOT EXISTS articles (
 -- Additive migration for databases created before cover_image existed.
 ALTER TABLE articles ADD COLUMN IF NOT EXISTS cover_image text NOT NULL DEFAULT '';
 
+-- Who published the article to WordPress, and when.
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS published_by uuid REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE articles ADD COLUMN IF NOT EXISTS published_at timestamptz;
+
 CREATE INDEX IF NOT EXISTS articles_author_idx ON articles (author_id);
 CREATE INDEX IF NOT EXISTS articles_status_idx ON articles (status);
+
+-- Email invitations. Admin adds an email; the person signs up (Google or
+-- password) to claim it and receives the assigned role.
+CREATE TABLE IF NOT EXISTS invites (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email        text NOT NULL,
+  role         text NOT NULL DEFAULT 'author' CHECK (role IN ('admin','editor','author')),
+  token        text UNIQUE NOT NULL,
+  invited_by   uuid REFERENCES users(id) ON DELETE SET NULL,
+  accepted_at  timestamptz,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS invites_email_idx ON invites (lower(email));
+
+-- Activity log so the admin can see who did what.
+CREATE TABLE IF NOT EXISTS activity (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     uuid REFERENCES users(id) ON DELETE SET NULL,
+  action      text NOT NULL,
+  article_id  uuid REFERENCES articles(id) ON DELETE SET NULL,
+  detail      text NOT NULL DEFAULT '',
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS activity_created_idx ON activity (created_at DESC);

@@ -4,6 +4,7 @@ import { canReview } from "@/lib/auth/rbac";
 import { authConfigured } from "@/lib/auth/session";
 import { dbConfigured } from "@/lib/db/client";
 import { listArticles, createArticle, type ArticleStatus } from "@/lib/db/articles";
+import { logActivity } from "@/lib/db/activity";
 
 export const runtime = "nodejs";
 
@@ -51,6 +52,7 @@ export async function POST(req: Request) {
       coverImage: String(b.coverImage ?? ""),
       overallScore: typeof b.overallScore === "number" ? b.overallScore : null,
     });
+    await logActivity({ userId: user.sub, action: "created", articleId: article.id, detail: article.title || "(untitled)" });
     return NextResponse.json({ article });
   } catch (e) {
     return authErrorResponse(e);

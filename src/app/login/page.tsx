@@ -12,6 +12,7 @@ function LoginInner() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [googleOn, setGoogleOn] = useState(false);
+  const [invite, setInvite] = useState<{ email: string; role: string } | null>(null);
 
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
@@ -21,6 +22,20 @@ function LoginInner() {
       .then((r) => r.json())
       .then((d) => setGoogleOn(Boolean(d.google)))
       .catch(() => setGoogleOn(false));
+
+    const token = p.get("invite");
+    if (token) {
+      fetch(`/api/auth/invite?token=${encodeURIComponent(token)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.valid) {
+            setInvite({ email: d.email, role: d.role });
+            setEmail(d.email);
+            setMode("register");
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   function nextUrl(): string {
@@ -55,8 +70,10 @@ function LoginInner() {
       <div className="auth-card">
         <h1>🔍 SEO Engine</h1>
         <div className="hint" style={{ marginBottom: 18 }}>
-          {mode === "login" ? "Sign in to continue." : "Create your account."}
+          {invite ? `You've been invited as ${invite.role}. Set up your account below.` : mode === "login" ? "Sign in to continue." : "Create your account."}
         </div>
+
+        {invite && <div className="banner success">Invitation for {invite.email}</div>}
 
         <div className="auth-tabs">
           <button className={mode === "login" ? "active" : ""} onClick={() => setMode("login")}>
@@ -77,7 +94,7 @@ function LoginInner() {
         )}
         <div className="field">
           <label>Email</label>
-          <input type="text" value={email} autoComplete="email" onChange={(e) => setEmail(e.target.value)} />
+          <input type="text" value={email} autoComplete="email" readOnly={!!invite} onChange={(e) => setEmail(e.target.value)} />
         </div>
         <div className="field">
           <label>Password</label>

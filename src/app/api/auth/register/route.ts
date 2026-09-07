@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import { getUserByEmail, createUser } from "@/lib/db/users";
 import { hashPassword, passwordProblem } from "@/lib/auth/password";
 import { createSessionToken, sessionCookieOptions, authConfigured, SESSION_COOKIE } from "@/lib/auth/session";
-import { roleForNewUser, emailDomainAllowed } from "@/lib/auth/provision";
+import { registrationDecision, emailDomainAllowed } from "@/lib/auth/provision";
+import { markInviteAccepted } from "@/lib/db/invites";
+import { logActivity } from "@/lib/db/activity";
 import { dbConfigured } from "@/lib/db/client";
 
 export const runtime = "nodejs";
@@ -39,13 +41,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
   }
 
-  const role = await roleForNewUser(email);
+  const decision = await registrationDecision(email);
+  if (!decision.allowed) {
+    return NextResponse.json({ error: decision.reason ?? "Registration is not allowed." }, { status: 403 });
+  }
   const user = await createUser({
     email,
     name: name || email.split("@")[0],
     passwordHash: await hashPassword(password),
-    role,
+    role: decision.role,
   });
+  if (decision.inviteId) await markInviteAccepted(decision.inviteId);
+  await logActivity({ userId: user.id, action: "created", detail: `account created as ${user.role}` });
 
   const token = await createSessionToken({
     sub: user.id,

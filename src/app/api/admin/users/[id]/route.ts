@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole, authErrorResponse } from "@/lib/auth/guard";
 import { getUserById, setUserRole, setUserStatus, listUsers } from "@/lib/db/users";
+import { logActivity } from "@/lib/db/activity";
 import type { Role } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
@@ -47,6 +48,7 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid role." }, { status: 400 });
       }
       await setUserRole(target.id, body.role);
+      await logActivity({ userId: admin.sub, action: "role_changed", detail: `${target.email} → ${body.role}` });
     }
     if (body.status) {
       await setUserStatus(target.id, body.status);

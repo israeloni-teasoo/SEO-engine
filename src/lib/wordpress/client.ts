@@ -203,6 +203,27 @@ export async function updatePost(
   });
 }
 
+/** Change only a post's status (draft/publish) without touching its content. */
+export async function setPostStatus(
+  creds: WordPressCredentials,
+  postId: number,
+  status: "draft" | "publish",
+): Promise<CreatedPost> {
+  return request<CreatedPost>(creds, `/posts/${postId}`, {
+    method: "POST",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/** Delete a post. force=true removes it permanently; otherwise it goes to trash. */
+export async function deletePost(
+  creds: WordPressCredentials,
+  postId: number,
+  force = true,
+): Promise<void> {
+  await request(creds, `/posts/${postId}?force=${force}`, { method: "DELETE" });
+}
+
 /** Fetch a post (used to confirm a publish round-trip). */
 export async function getPost(
   creds: WordPressCredentials,
