@@ -725,3 +725,34 @@ select:focus {
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.55);
   padding: 12px;
 }
+
+/* --- Light theme (toggle) --- */
+:root { color-scheme: dark; }
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f5f7fa;
+  --panel: #ffffff;
+  --panel-2: #eef1f5;
+  --border: #d7dde5;
+  --text: #1a2230;
+  --muted: #5c6773;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --good: #1a7f37;
+  --ok: #9a6700;
+  --bad: #d1242f;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+:root[data-theme="light"] .review-preview { background: var(--panel-2); }
+.theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 8px;
+  width: 32px;
+  height: 30px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+}
+.theme-toggle:hover { color: var(--text); border-color: var(--accent); }

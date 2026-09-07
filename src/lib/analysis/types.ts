@@ -52,6 +52,8 @@ export interface ParsedContent {
   sentences: string[];
   paragraphs: string[];
   headings: { level: number; text: string }[];
+  /** Body text grouped into sections (a new section starts at each H2-H6). */
+  sections: string[];
   images: { src: string; alt: string }[];
   links: { href: string; internal: boolean }[];
   /** Text of the first paragraph (or first ~sentence block). */

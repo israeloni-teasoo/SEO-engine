@@ -2,6 +2,7 @@
 
 import type { Me } from "./useMe";
 import { canReviewRole, isAdminRole } from "./useMe";
+import ThemeToggle from "./ThemeToggle";
 
 async function logout() {
   await fetch("/api/auth/logout", { method: "POST" });
@@ -27,6 +28,7 @@ export default function AppHeader({
       </h1>
 
       <div className="nav">
+        <ThemeToggle />
         {authEnabled && me && (
           <>
             <a href="/" style={{ color: active === "editor" ? "var(--text)" : undefined }}>

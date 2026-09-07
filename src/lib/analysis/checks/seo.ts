@@ -1,6 +1,7 @@
 import type { AnalysisInput, CheckResult, ParsedContent } from "../types";
 import { THRESHOLDS, SLUG_STOP_WORDS } from "../config";
 import { countPhraseOccurrences, tokenizeWords } from "../text-stats";
+import { analyzeHeadline, headlineGaps } from "../headline";
 
 /** Rough SERP pixel width of a title at Google's ~20px Arial rendering. */
 export function estimateTitleWidthPx(title: string): number {
@@ -80,19 +81,69 @@ export function seoChecks(
     badMsg: `Use the focus keyphrase within the first ${THRESHOLDS.keyphraseFirstParagraphWindow} words.`,
   });
 
-  const subheadingText = parsed.headings
-    .filter((h) => h.level >= 2)
-    .map((h) => h.text)
-    .join("  •  ");
-  pushPlacement(checks, {
-    id: "keyphrase-in-subheading",
-    label: "Keyphrase in a subheading",
-    weight: 1,
-    present: hasKeyphrase && has(subheadingText, kp),
-    hasKeyphrase,
-    okMsg: "The focus keyphrase appears in at least one subheading.",
-    badMsg: "Add the focus keyphrase to at least one H2/H3 subheading.",
-  });
+  // Keyphrase in subheadings — reward coverage across several, not just one.
+  {
+    const subs = parsed.headings.filter((h) => h.level >= 2);
+    const withKp = subs.filter((h) => has(h.text, kp)).length;
+    let status: CheckResult["status"];
+    let message: string;
+    if (!hasKeyphrase) {
+      status = "bad";
+      message = "Set a focus keyphrase to run this check.";
+    } else if (subs.length === 0) {
+      status = "bad";
+      message = "No subheadings. Add H2/H3 subheadings and work the keyphrase into some of them.";
+    } else {
+      const ratio = withKp / subs.length;
+      const target = Math.max(2, Math.ceil(subs.length * 0.3));
+      if (withKp === 0) {
+        status = "bad";
+        message = `None of your ${subs.length} subheadings use the keyphrase. Add it to about ${target}.`;
+      } else if (subs.length <= 2 ? withKp >= 1 : ratio >= 0.3) {
+        status = "good";
+        message = `${withKp} of ${subs.length} subheadings use the keyphrase — good coverage.`;
+      } else {
+        status = "ok";
+        message = `Only ${withKp} of ${subs.length} subheadings use the keyphrase. Add it to a few more (aim for ~${target}).`;
+      }
+    }
+    checks.push({
+      id: "keyphrase-in-subheading",
+      category: "seo",
+      label: "Keyphrase in subheadings",
+      weight: 1,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
+
+  // Keyphrase distribution across sections of the article.
+  if (hasKeyphrase && parsed.sections.length >= 3) {
+    const sectionsWithKp = parsed.sections.filter((s) => has(s, kp)).length;
+    const ratio = sectionsWithKp / parsed.sections.length;
+    let status: CheckResult["status"];
+    let message: string;
+    if (ratio >= 0.6) {
+      status = "good";
+      message = `The keyphrase appears across ${sectionsWithKp} of ${parsed.sections.length} sections — well distributed.`;
+    } else if (ratio >= 0.4) {
+      status = "ok";
+      message = `The keyphrase is in ${sectionsWithKp} of ${parsed.sections.length} sections. Work it naturally into a few more.`;
+    } else {
+      status = "bad";
+      message = `Only ${sectionsWithKp} of ${parsed.sections.length} sections mention the keyphrase. Spread it (or close variants) across more sections.`;
+    }
+    checks.push({
+      id: "keyphrase-distribution",
+      category: "seo",
+      label: "Keyphrase distribution",
+      weight: 1.5,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
 
   {
     const altText = parsed.images.map((i) => i.alt).join(" ");
@@ -242,6 +293,33 @@ export function seoChecks(
       category: "seo",
       label: "SEO title width",
       weight: 1.5,
+      aiFixable: true,
+      status,
+      message,
+    });
+  }
+
+  // Headline quality (power/emotional words, common/uncommon balance, sentiment)
+  if (input.title && input.title.trim()) {
+    const h = analyzeHeadline(input.title);
+    const gaps = headlineGaps(h);
+    let status: CheckResult["status"];
+    let message: string;
+    if (gaps.length === 0) {
+      status = "good";
+      message = "Strong headline: it has power and emotional words with a clear angle.";
+    } else if (gaps.length <= 2) {
+      status = "ok";
+      message = `Good headline. To sharpen it: ${gaps.join("; ")}.`;
+    } else {
+      status = "bad";
+      message = `Headline needs work: ${gaps.join("; ")}.`;
+    }
+    checks.push({
+      id: "headline-quality",
+      category: "seo",
+      label: "Headline quality",
+      weight: 1,
       aiFixable: true,
       status,
       message,

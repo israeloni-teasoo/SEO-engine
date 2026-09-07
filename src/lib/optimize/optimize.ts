@@ -1,7 +1,7 @@
 import type { AnalysisInput, AnalysisResult } from "../analysis/types";
 import { analyze } from "../analysis/index";
 import { autoFix } from "../ai/autofix";
-import { deriveSeo, slugify } from "../seo/derive";
+import { deriveSeo, deriveKeywordIdeas, slugify } from "../seo/derive";
 
 export interface OptimizeState {
   title: string;
@@ -49,15 +49,16 @@ function backfill(state: OptimizeState): OptimizeState {
     out.metaDescription = `${out.metaDescription.slice(0, 155).replace(/\s+\S*$/, "")}…`;
   }
 
-  // Tags: ensure a healthy set.
-  if (out.tags.filter(Boolean).length < 5) {
-    const merged = [...new Set([...out.tags, ...derived.tags])].filter(Boolean);
-    out.tags = merged.slice(0, 12);
+  // Tags: ensure a healthy set (aim for ~12), backfilling from the idea pool.
+  if (out.tags.filter(Boolean).length < 12) {
+    const ideas = deriveKeywordIdeas({ title: out.title, content: out.content, siteDomain: out.siteDomain }, 60);
+    const merged = [...new Set([...out.tags, ...derived.tags, ...ideas])].filter(Boolean);
+    out.tags = merged.slice(0, 15);
   }
 
-  // Category: ensure at least one.
+  // Category: ensure at least one; default to the site's default category (ESG).
   if (out.categories.filter(Boolean).length === 0) {
-    out.categories = [titleCase(out.focusKeyphrase || out.tags[0] || "General")];
+    out.categories = [process.env.DEFAULT_CATEGORY || "ESG"];
   }
 
   return out;

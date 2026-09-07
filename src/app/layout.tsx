@@ -12,8 +12,13 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Set the theme before paint to avoid a flash of the wrong palette.
+  const themeScript = `(function(){try{var t=localStorage.getItem('theme');if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;}}catch(e){}})();`;
   return (
     <html lang="en">
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+      </head>
       <body>{children}</body>
     </html>
   );
