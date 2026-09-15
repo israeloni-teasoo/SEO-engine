@@ -55,6 +55,7 @@ export async function POST(req: Request) {
       invite: { id: invite.id, email, role },
       link,
       emailed: emailResult.sent,
+      emailConfigured: emailConfigured(),
       emailError: emailResult.sent ? undefined : emailResult.error,
     });
   } catch (e) {

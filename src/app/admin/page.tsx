@@ -62,8 +62,14 @@ export default function AdminPage() {
     const d = await r.json();
     if (!r.ok) { setMsg({ kind: "error", text: d.error }); return; }
     setInviteEmail("");
-    if (d.emailed) setMsg({ kind: "success", text: `Invitation emailed to ${d.invite.email}.` });
-    else setMsg({ kind: "success", text: `Invite created. Email isn't configured, so share this link: ${d.link}` });
+    if (d.emailed) {
+      setMsg({ kind: "success", text: `Invitation emailed to ${d.invite.email}.` });
+    } else if (d.emailConfigured) {
+      // Keys are set but the provider rejected the send — surface the real reason.
+      setMsg({ kind: "error", text: `Invite created, but the email failed to send: ${d.emailError || "unknown error"}. Share this link instead: ${d.link}` });
+    } else {
+      setMsg({ kind: "success", text: `Invite created. Email isn't configured, so share this link: ${d.link}` });
+    }
     loadInvites();
   }
 
