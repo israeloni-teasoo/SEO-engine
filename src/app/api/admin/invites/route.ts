@@ -3,7 +3,7 @@ import { requireRole, authErrorResponse } from "@/lib/auth/guard";
 import { createInvite, listInvites, getPendingInvite, setInviteRole } from "@/lib/db/invites";
 import { getUserByEmail } from "@/lib/db/users";
 import { logActivity } from "@/lib/db/activity";
-import { sendEmail, inviteEmailHtml, emailConfigured } from "@/lib/email";
+import { sendEmail, inviteEmailHtml, inviteEmailText, emailConfigured } from "@/lib/email";
 import type { Role } from "@/lib/auth/session";
 
 export const runtime = "nodejs";
@@ -72,8 +72,10 @@ export async function POST(req: Request) {
 
     const emailResult = await sendEmail({
       to: email,
-      subject: "You're invited to SEO Engine",
+      subject: `${admin.name || "You"} invited you to SEO Engine`,
       html: inviteEmailHtml({ appName: "SEO Engine", role: invite.role, link, inviterName: admin.name }),
+      text: inviteEmailText({ appName: "SEO Engine", role: invite.role, link, inviterName: admin.name }),
+      replyTo: admin.email || undefined,
     });
     await logActivity({ userId: admin.sub, action: "invited", detail: `${email} as ${invite.role}${existing ? " (resend)" : ""}` });
 
