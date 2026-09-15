@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import { postJson } from "../components/api";
 
 export const dynamic = "force-dynamic";
 
@@ -47,13 +48,8 @@ function LoginInner() {
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(`/api/auth/${mode}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, name }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
+      const { ok, data } = await postJson(`/api/auth/${mode}`, { email, password, name });
+      if (!ok) {
         setError(data.error || "Something went wrong.");
         return;
       }

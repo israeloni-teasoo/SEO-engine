@@ -5,7 +5,7 @@ import { createSessionToken, sessionCookieOptions, authConfigured, SESSION_COOKI
 import { registrationDecision, emailDomainAllowed } from "@/lib/auth/provision";
 import { markInviteAccepted } from "@/lib/db/invites";
 import { logActivity } from "@/lib/db/activity";
-import { dbConfigured } from "@/lib/db/client";
+import { dbConfigured, dbSetupHint } from "@/lib/db/client";
 
 export const runtime = "nodejs";
 
@@ -37,32 +37,36 @@ export async function POST(req: Request) {
   const pwProblem = passwordProblem(password);
   if (pwProblem) return NextResponse.json({ error: pwProblem }, { status: 400 });
 
-  if (await getUserByEmail(email)) {
-    return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
-  }
+  try {
+    if (await getUserByEmail(email)) {
+      return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
+    }
 
-  const decision = await registrationDecision(email);
-  if (!decision.allowed) {
-    return NextResponse.json({ error: decision.reason ?? "Registration is not allowed." }, { status: 403 });
-  }
-  const user = await createUser({
-    email,
-    name: name || email.split("@")[0],
-    passwordHash: await hashPassword(password),
-    role: decision.role,
-  });
-  if (decision.inviteId) await markInviteAccepted(decision.inviteId);
-  await logActivity({ userId: user.id, action: "created", detail: `account created as ${user.role}` });
+    const decision = await registrationDecision(email);
+    if (!decision.allowed) {
+      return NextResponse.json({ error: decision.reason ?? "Registration is not allowed." }, { status: 403 });
+    }
+    const user = await createUser({
+      email,
+      name: name || email.split("@")[0],
+      passwordHash: await hashPassword(password),
+      role: decision.role,
+    });
+    if (decision.inviteId) await markInviteAccepted(decision.inviteId);
+    await logActivity({ userId: user.id, action: "created", detail: `account created as ${user.role}` });
 
-  const token = await createSessionToken({
-    sub: user.id,
-    email: user.email,
-    name: user.name ?? "",
-    role: user.role,
-  });
-  const res = NextResponse.json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role },
-  });
-  res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
-  return res;
+    const token = await createSessionToken({
+      sub: user.id,
+      email: user.email,
+      name: user.name ?? "",
+      role: user.role,
+    });
+    const res = NextResponse.json({
+      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+    });
+    res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions);
+    return res;
+  } catch (e) {
+    return NextResponse.json({ error: dbSetupHint(e) }, { status: 500 });
+  }
 }
