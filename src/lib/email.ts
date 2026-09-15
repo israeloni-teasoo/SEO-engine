@@ -15,6 +15,8 @@ export async function sendEmail(input: {
   to: string;
   subject: string;
   html: string;
+  text?: string;
+  replyTo?: string;
 }): Promise<SendResult> {
   if (!emailConfigured()) return { sent: false, error: "Email is not configured." };
   try {
@@ -29,6 +31,11 @@ export async function sendEmail(input: {
         to: input.to,
         subject: input.subject,
         html: input.html,
+        // A plain-text alternative markedly improves deliverability and helps
+        // Gmail treat the message as transactional (Primary tab) not promotional.
+        ...(input.text ? { text: input.text } : {}),
+        // A real Reply-To (the inviter) is a strong "not bulk marketing" signal.
+        ...(input.replyTo ? { reply_to: input.replyTo } : {}),
       }),
     });
     if (!res.ok) return { sent: false, error: `Email provider error (${res.status}): ${await res.text()}` };
@@ -45,20 +52,37 @@ export function inviteEmailHtml(input: {
   inviterName?: string | null;
 }): string {
   const by = input.inviterName ? ` by ${escapeHtml(input.inviterName)}` : "";
-  return `
-  <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:520px;margin:0 auto;padding:24px">
-    <h2 style="margin:0 0 8px">You've been invited to ${escapeHtml(input.appName)}</h2>
-    <p style="color:#444;font-size:15px;line-height:1.6">
-      You were invited${by} to join as <strong>${escapeHtml(input.role)}</strong>.
-      Click below to set up your account. You can sign in with Google or create a password.
-    </p>
-    <p style="margin:22px 0">
-      <a href="${input.link}" style="background:#2563eb;color:#fff;text-decoration:none;padding:11px 20px;border-radius:8px;font-weight:600;font-size:14px">
-        Accept invitation
-      </a>
-    </p>
-    <p style="color:#888;font-size:12px">If the button doesn't work, copy this link:<br>${input.link}</p>
-  </div>`;
+  // Kept deliberately plain and text-like (no big marketing button, no banner
+  // images, left-aligned) so Gmail treats it as a transactional message and
+  // sorts it into Primary rather than Promotions.
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:15px;color:#222;line-height:1.6">
+  <p>Hi,</p>
+  <p>You've been invited${by} to join <strong>${escapeHtml(input.appName)}</strong> as ${escapeHtml(input.role)}.</p>
+  <p>Set up your account here:<br><a href="${input.link}" style="color:#2563eb">${input.link}</a></p>
+  <p>You can sign in with Google or create a password. If you weren't expecting this, you can ignore this email.</p>
+  <p>— ${escapeHtml(input.appName)}</p>
+</div>`;
+}
+
+export function inviteEmailText(input: {
+  appName: string;
+  role: string;
+  link: string;
+  inviterName?: string | null;
+}): string {
+  const by = input.inviterName ? ` by ${input.inviterName}` : "";
+  return [
+    `Hi,`,
+    ``,
+    `You've been invited${by} to join ${input.appName} as ${input.role}.`,
+    ``,
+    `Set up your account here:`,
+    input.link,
+    ``,
+    `You can sign in with Google or create a password. If you weren't expecting this, you can ignore this email.`,
+    ``,
+    `— ${input.appName}`,
+  ].join("\n");
 }
 
 function escapeHtml(s: string): string {
