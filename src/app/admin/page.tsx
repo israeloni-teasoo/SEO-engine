@@ -30,12 +30,13 @@ export default function AdminPage() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [encReady, setEncReady] = useState(true);
   const [wpPassword, setWpPassword] = useState("");
-  const [msg, setMsg] = useState<{ kind: "error" | "success"; text: string } | null>(null);
+  const [msg, setMsg] = useState<{ kind: "error" | "success" | "info"; text: string } | null>(null);
 
   const [invites, setInvites] = useState<Invite[]>([]);
   const [emailReady, setEmailReady] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState<Role>("author");
+  const [sending, setSending] = useState(false);
   const [activity, setActivity] = useState<Activity[]>([]);
 
   const loadUsers = useCallback(async () => {
@@ -54,23 +55,33 @@ export default function AdminPage() {
   }, []);
 
   async function sendInvite() {
+    if (sending) return;
+    setSending(true);
     setMsg(null);
-    const r = await fetch("/api/admin/invites", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
-    });
-    const d = await r.json();
-    if (!r.ok) { setMsg({ kind: "error", text: d.error }); return; }
-    setInviteEmail("");
-    if (d.emailed) {
-      setMsg({ kind: "success", text: `Invitation emailed to ${d.invite.email}.` });
-    } else if (d.emailConfigured) {
-      // Keys are set but the provider rejected the send — surface the real reason.
-      setMsg({ kind: "error", text: `Invite created, but the email failed to send: ${d.emailError || "unknown error"}. Share this link instead: ${d.link}` });
-    } else {
-      setMsg({ kind: "success", text: `Invite created. Email isn't configured, so share this link: ${d.link}` });
+    try {
+      const r = await fetch("/api/admin/invites", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: inviteEmail, role: inviteRole }),
+      });
+      const d = await r.json();
+      if (!r.ok) { setMsg({ kind: "error", text: d.error }); return; }
+      setInviteEmail("");
+      if (d.duplicate) {
+        setMsg({ kind: "info", text: `${d.invite.email} was already invited moments ago — no second invitation was sent.` });
+      } else if (d.emailed) {
+        setMsg({ kind: "success", text: `Invitation ${d.reused ? "re-sent" : "emailed"} to ${d.invite.email}.` });
+      } else if (d.emailConfigured) {
+        // Keys are set but the provider rejected the send — surface the real reason.
+        setMsg({ kind: "error", text: `Invite created, but the email failed to send: ${d.emailError || "unknown error"}. Share this link instead: ${d.link}` });
+      } else {
+        setMsg({ kind: "success", text: `Invite created. Email isn't configured, so share this link: ${d.link}` });
+      }
+      loadInvites();
+    } catch (e) {
+      setMsg({ kind: "error", text: (e as Error).message });
+    } finally {
+      setSending(false);
     }
-    loadInvites();
   }
 
   async function revokeInvite(id: string) {
@@ -167,7 +178,7 @@ export default function AdminPage() {
                 <option value="editor">editor</option>
                 <option value="admin">admin</option>
               </select>
-              <button className="btn primary" onClick={sendInvite} disabled={!inviteEmail.trim()}>Send invite</button>
+              <button className="btn primary" onClick={sendInvite} disabled={!inviteEmail.trim() || sending}>{sending && <span className="spinner" />} Send invite</button>
             </div>
             {invites.length > 0 && (
               <table className="table" style={{ marginTop: 14 }}>

@@ -43,6 +43,11 @@ export async function markInviteAccepted(id: string): Promise<void> {
   await db()`UPDATE invites SET accepted_at = now() WHERE id = ${id}`;
 }
 
+/** Update the role on an existing (pending) invite, e.g. when re-inviting. */
+export async function setInviteRole(id: string, role: Role): Promise<void> {
+  await db()`UPDATE invites SET role = ${role} WHERE id = ${id}`;
+}
+
 export async function listInvites(): Promise<InviteRow[]> {
   return db()<InviteRow[]>`SELECT * FROM invites ORDER BY created_at DESC`;
 }
