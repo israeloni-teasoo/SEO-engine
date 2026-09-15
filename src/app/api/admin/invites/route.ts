@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireRole, authErrorResponse } from "@/lib/auth/guard";
-import { createInvite, listInvites } from "@/lib/db/invites";
+import { createInvite, listInvites, getPendingInvite, setInviteRole } from "@/lib/db/invites";
 import { getUserByEmail } from "@/lib/db/users";
 import { logActivity } from "@/lib/db/activity";
 import { sendEmail, inviteEmailHtml, emailConfigured } from "@/lib/email";
@@ -39,24 +39,52 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "That person already has an account." }, { status: 409 });
     }
 
-    const invite = await createInvite({ email, role, invitedBy: admin.sub });
+    // Reuse an existing pending invite instead of creating a duplicate row.
+    // If it was created seconds ago, treat this as an accidental double-submit
+    // and don't send a second email.
+    const existing = await getPendingInvite(email);
+    const DUPLICATE_WINDOW_MS = 20_000;
+    const isDuplicateClick =
+      existing != null && Date.now() - new Date(existing.createdAt).getTime() < DUPLICATE_WINDOW_MS;
+
+    let invite = existing;
+    if (!invite) {
+      invite = await createInvite({ email, role, invitedBy: admin.sub });
+    } else if (invite.role !== role && !isDuplicateClick) {
+      await setInviteRole(invite.id, role);
+      invite = { ...invite, role };
+    }
+
     const origin = new URL(req.url).origin;
     const link = `${origin}/login?invite=${invite.token}`;
+
+    if (isDuplicateClick) {
+      // Same person invited a moment ago — no second email, no duplicate log.
+      return NextResponse.json({
+        ok: true,
+        invite: { id: invite.id, email, role: invite.role },
+        link,
+        emailed: false,
+        emailConfigured: emailConfigured(),
+        duplicate: true,
+      });
+    }
 
     const emailResult = await sendEmail({
       to: email,
       subject: "You're invited to SEO Engine",
-      html: inviteEmailHtml({ appName: "SEO Engine", role, link, inviterName: admin.name }),
+      html: inviteEmailHtml({ appName: "SEO Engine", role: invite.role, link, inviterName: admin.name }),
     });
-    await logActivity({ userId: admin.sub, action: "invited", detail: `${email} as ${role}` });
+    await logActivity({ userId: admin.sub, action: "invited", detail: `${email} as ${invite.role}${existing ? " (resend)" : ""}` });
 
     return NextResponse.json({
       ok: true,
-      invite: { id: invite.id, email, role },
+      invite: { id: invite.id, email, role: invite.role },
       link,
       emailed: emailResult.sent,
       emailConfigured: emailConfigured(),
       emailError: emailResult.sent ? undefined : emailResult.error,
+      reused: Boolean(existing),
     });
   } catch (e) {
     return authErrorResponse(e);
