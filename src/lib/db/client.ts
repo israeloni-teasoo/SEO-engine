@@ -6,16 +6,22 @@ let sql: ReturnType<typeof postgres> | null = null;
 
 export class MissingDatabaseError extends Error {
   constructor() {
-    super("DATABASE_URL is not set. Configure a Postgres (Supabase) connection string.");
+    super("DATABASE_URL is not set. Configure a Postgres (Neon) connection string.");
     this.name = "MissingDatabaseError";
   }
 }
 
-// Supabase's transaction pooler (PgBouncer, port 6543) doesn't support prepared
-// statements, so we must disable them there. Detect the pooler and turn them off;
-// direct/session connections keep the faster prepared path.
-function usesTransactionPooler(url: string): boolean {
-  return /[:@][^/]*:6543\b/.test(url) || /[?&]pgbouncer=true\b/i.test(url);
+// Connection poolers (PgBouncer in transaction mode) don't reliably support
+// prepared statements, so we disable them when the URL points at one. This
+// covers Neon's pooled endpoint (host contains "-pooler") and Supabase's
+// transaction pooler (port 6543 / pgbouncer=true). Direct/unpooled connections
+// keep the faster prepared-statement path.
+function isPooledConnection(url: string): boolean {
+  return (
+    /-pooler\./i.test(url) || // Neon pooled endpoint
+    /[:@][^/]*:6543\b/.test(url) || // Supabase transaction pooler
+    /[?&]pgbouncer=true\b/i.test(url)
+  );
 }
 
 export function db() {
@@ -26,7 +32,7 @@ export function db() {
       ssl: "require",
       max: 5,
       idle_timeout: 20,
-      prepare: !usesTransactionPooler(url),
+      prepare: !isPooledConnection(url),
       // Map snake_case columns <-> camelCase JS keys automatically.
       transform: postgres.camel,
     });
@@ -47,13 +53,13 @@ export function dbConfigured(): boolean {
 export function dbSetupHint(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
   if (/relation .* does not exist|undefined_table|does not exist|no such table/i.test(msg)) {
-    return "The database tables aren't set up yet. Apply the schema once: run `DATABASE_URL=... npm run db:setup`, or paste src/lib/db/schema.sql into Supabase's SQL Editor and run it. Then try again.";
+    return "The database tables aren't set up yet. Apply the schema once: run `DATABASE_URL=... npm run db:setup`, or paste src/lib/db/schema.sql into the Neon SQL Editor and run it. Then try again.";
   }
   if (/ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|connection|terminated|timeout|SASL|password authentication|SSL|self.signed/i.test(msg)) {
-    return `Could not connect to the database. Check DATABASE_URL — on Vercel use Supabase's Transaction pooler URI (host …pooler.supabase.com, port 6543) and confirm the password is correct. (${msg})`;
+    return `Could not connect to the database. Check DATABASE_URL — on Vercel use the Neon pooled connection string (host contains "-pooler", with ?sslmode=require) and confirm the password is correct. (${msg})`;
   }
   if (/prepared statement|bind message|pgbouncer/i.test(msg)) {
-    return `Database rejected a prepared statement — this is the Supabase pooler. Use the Transaction pooler URI (port 6543) so prepared statements are disabled automatically. (${msg})`;
+    return `Database rejected a prepared statement — this is a connection pooler. Use the pooled connection string (Neon's "-pooler" host) so prepared statements are disabled automatically. (${msg})`;
   }
   return `Database error: ${msg}`;
 }
