@@ -81,7 +81,12 @@ export default function ArticlesPage() {
           </div>
           <div className="card-body" style={{ padding: 0 }}>
             {articles.length === 0 ? (
-              <div className="card-body"><div className="hint">No articles yet.</div></div>
+              <div className="empty-state">
+                <span className="emoji">📝</span>
+                <div className="title">{filter === "in_review" ? "Nothing in the review queue" : filter === "published" ? "No published posts yet" : "No articles yet"}</div>
+                <div>{canReview ? "Posts your team writes will show up here." : "Start writing and your drafts will appear here."}</div>
+                <a className="btn primary" href="/" style={{ marginTop: 14, textDecoration: "none", display: "inline-flex" }}>+ New article</a>
+              </div>
             ) : (
               <table className="table">
                 <thead>
