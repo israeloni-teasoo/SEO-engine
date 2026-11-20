@@ -45,7 +45,12 @@ export default function AppShell({
     <div className="app-shell">
       <aside className="sidebar">
         <a href="/" className="sidebar-brand">
-          <span className="brand-mark">🔍</span>
+          <span className="brand-mark">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <line x1="20" y1="20" x2="15.5" y2="15.5" />
+            </svg>
+          </span>
           <span className="brand-text">
             SEO Engine
             <small>Blog Post Optimizer</small>
