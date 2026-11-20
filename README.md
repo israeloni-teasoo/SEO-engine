@@ -81,7 +81,7 @@ transition words, and more.
   roles, an approval workflow (authors submit, editors publish), an **activity
   log** ("who posted what"), and a **Manage published posts** view — edit in
   place, switch draft/publish, or delete on WordPress. Off by default — turn it
-  on with `DATABASE_URL` (Supabase Postgres) + `AUTH_SECRET`. See
+  on with `DATABASE_URL` (Neon Postgres) + `AUTH_SECRET`. See
   [`docs/SETUP.md`](docs/SETUP.md).
 
 **New here? Read [`docs/SETUP.md`](docs/SETUP.md) — it lists exactly what to
