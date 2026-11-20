@@ -69,7 +69,12 @@ function LoginInner() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="auth-brand">
-          <span className="auth-logo">🔍</span>
+          <span className="auth-logo">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden>
+              <circle cx="10.5" cy="10.5" r="6.5" />
+              <line x1="20" y1="20" x2="15.5" y2="15.5" />
+            </svg>
+          </span>
           <div>
             <div className="auth-title">SEO Engine</div>
             <div className="auth-sub">Blog Post Optimizer</div>
