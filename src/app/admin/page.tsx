@@ -278,7 +278,11 @@ export default function AdminPage() {
           <div className="card-header">Recent activity</div>
           <div className="card-body" style={{ padding: 0 }}>
             {activity.length === 0 ? (
-              <div className="card-body"><div className="hint">No activity yet.</div></div>
+              <div className="empty-state">
+                <span className="emoji">📊</span>
+                <div className="title">No activity yet</div>
+                <div>Invites, submissions, and publishes will be logged here.</div>
+              </div>
             ) : (
               <table className="table">
                 <thead><tr><th>When</th><th>Who</th><th>Action</th><th>Details</th></tr></thead>
