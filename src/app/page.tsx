@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppShell from "./components/AppShell";
 import RichEditor from "./components/RichEditor";
+import PasswordInput from "./components/PasswordInput";
 import ReviewPanel from "./components/ReviewPanel";
 import { applyContentEdit } from "./components/reviewApply";
 import { useMe, canPublishRole } from "./components/useMe";
@@ -645,7 +646,7 @@ function PublishModal({ draft, articleId, wpPostId, coverImage, coverMediaId, mu
             <>
               <div className="field" style={{ marginTop: 0 }}><label>Site URL</label><input type="text" value={url} placeholder="https://blog.example.com" onChange={(e) => setUrl(e.target.value)} /></div>
               <div className="field"><label>Username</label><input type="text" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
-              <div className="field"><label>Application Password</label><input type="text" value={applicationPassword} placeholder="xxxx xxxx xxxx xxxx" onChange={(e) => setApplicationPassword(e.target.value)} /></div>
+              <div className="field"><label>Application Password</label><PasswordInput value={applicationPassword} onChange={setApplicationPassword} placeholder="xxxx xxxx xxxx xxxx" autoComplete="off" /></div>
             </>
           )}
           <div className="field" style={{ marginTop: multiUser ? 0 : 14 }}><label>Publish as</label>

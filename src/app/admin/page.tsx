@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import PasswordInput from "../components/PasswordInput";
 import { useMe, isAdminRole, type Role } from "../components/useMe";
 
 interface AdminUser {
@@ -253,7 +254,7 @@ export default function AdminPage() {
                 </div>
                 <div className="field">
                   <label>Application Password {settings.wordpressPasswordSet && <span className="counter">saved ✓</span>}</label>
-                  <input type="text" value={wpPassword} placeholder={settings.wordpressPasswordSet ? "•••• (leave blank to keep)" : "xxxx xxxx xxxx xxxx"} onChange={(e) => setWpPassword(e.target.value)} />
+                  <PasswordInput value={wpPassword} onChange={setWpPassword} placeholder={settings.wordpressPasswordSet ? "•••• (leave blank to keep)" : "xxxx xxxx xxxx xxxx"} autoComplete="off" />
                 </div>
                 <div className="row">
                   <div className="field">

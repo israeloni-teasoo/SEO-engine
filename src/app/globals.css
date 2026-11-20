@@ -924,3 +924,100 @@ select:focus {
   line-height: 1;
 }
 .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
+
+/* ============================================================
+   UX polish pass
+   ============================================================ */
+
+/* Inputs: a touch taller with a clearer focus ring */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+textarea,
+select {
+  padding: 10px 12px;
+  border-radius: 9px;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+input:focus,
+textarea:focus,
+select:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.18);
+}
+input::placeholder,
+textarea::placeholder { color: var(--muted); opacity: 0.7; }
+
+/* Button sizes */
+.btn-lg { padding: 11px 16px; font-size: 14px; border-radius: 9px; }
+.btn-block {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+/* Affix inputs (password show/hide, etc.) */
+.input-affix { position: relative; display: flex; align-items: center; }
+.input-affix input { width: 100%; padding-right: 42px; }
+.input-affix-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+}
+.input-affix-btn:hover { color: var(--text); background: var(--panel-2); }
+.field-warn { font-size: 11.5px; color: var(--ok); margin-top: 5px; }
+
+/* Auth screen refresh */
+.auth-wrap {
+  max-width: none;
+  min-height: 100vh;
+  margin: 0;
+  padding: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 28px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+}
+.auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.auth-logo {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.auth-title { font-size: 18px; font-weight: 700; line-height: 1.1; }
+.auth-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.auth-foot { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 18px; }
+.linklike {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: inherit;
+  font-weight: 600;
+  padding: 0;
+}
+.linklike:hover { text-decoration: underline; }
