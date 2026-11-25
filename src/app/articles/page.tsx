@@ -17,6 +17,11 @@ interface ArticleRow {
   wpLink: string | null;
 }
 
+function scoreChipClass(n: number | null): string {
+  if (n == null) return "none";
+  return n >= 75 ? "good" : n >= 50 ? "ok" : "bad";
+}
+
 export default function ArticlesPage() {
   const { me, authEnabled, loading } = useMe();
   const [articles, setArticles] = useState<ArticleRow[]>([]);
@@ -106,7 +111,7 @@ export default function ArticlesPage() {
                       {canReview && <td>{a.authorName || a.authorEmail}</td>}
                       {canReview && <td>{a.publisherName || "—"}</td>}
                       <td><span className={`status-pill ${a.status}`}>{a.status.replace("_", " ")}</span></td>
-                      <td>{a.overallScore ?? "—"}</td>
+                      <td><span className={`score-chip ${scoreChipClass(a.overallScore)}`}>{a.overallScore ?? "—"}</span></td>
                       <td>
                         <div className="btn-row" style={{ justifyContent: "flex-end" }}>
                           <a className="btn" style={{ padding: "3px 10px", textDecoration: "none" }} href={`/?id=${a.id}`}>

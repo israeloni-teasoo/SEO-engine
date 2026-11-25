@@ -633,7 +633,7 @@ function PublishModal({ draft, articleId, wpPostId, coverImage, coverMediaId, mu
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="card-header">Publish to WordPress</div>
+        <div className="card-header">Publish to WordPress<button className="modal-close" onClick={onClose} aria-label="Close">×</button></div>
         <div className="card-body">
           {multiUser ? (
             <div className="banner info">Publishing to the shared company blog configured by your admin.</div>
