@@ -1182,3 +1182,49 @@ body {
 /* Editor shell: lift to match cards */
 .editor-shell { border-radius: var(--radius); }
 .title-input { letter-spacing: -0.02em; }
+
+/* ---- Table refinements ---- */
+.table th:first-child,
+.table td:first-child { padding-left: 16px; }
+.table th:last-child,
+.table td:last-child { padding-right: 16px; }
+/* Titles read as text, not raw hyperlinks */
+.table a:not(.btn) { color: var(--text); font-weight: 550; text-decoration: none; }
+.table a:not(.btn):hover { color: var(--accent); }
+/* Quieter ghost action buttons inside table rows */
+.table .btn-row .btn { background: transparent; border-color: transparent; }
+.table .btn-row .btn:hover:not(:disabled) { background: var(--panel-2); border-color: var(--border); }
+
+/* Score chip (coloured by value) */
+.score-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  padding: 2px 8px;
+  border-radius: 7px;
+  font-weight: 700;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.score-chip.good { background: rgba(63, 185, 80, 0.16); color: var(--good); }
+.score-chip.ok { background: rgba(210, 153, 34, 0.16); color: var(--ok); }
+.score-chip.bad { background: rgba(248, 81, 73, 0.16); color: var(--bad); }
+.score-chip.none { color: var(--faint); background: transparent; }
+
+/* ---- Modal header close button ---- */
+.modal-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  font-size: 20px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal-close:hover { background: var(--panel-2); color: var(--text); }
