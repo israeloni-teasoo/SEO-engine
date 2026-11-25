@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import AppShell from "./components/AppShell";
 import RichEditor from "./components/RichEditor";
-import PasswordInput from "./components/PasswordInput";
+import PublishModal from "./components/PublishModal";
 import ReviewPanel from "./components/ReviewPanel";
 import { applyContentEdit } from "./components/reviewApply";
 import { useMe, canPublishRole } from "./components/useMe";
@@ -50,6 +50,7 @@ export default function Home() {
   const [articleId, setArticleId] = useState<string | null>(null);
   const [articleStatus, setArticleStatus] = useState<string | null>(null);
   const [wpPostId, setWpPostId] = useState<number | null>(null);
+  const [wpLink, setWpLink] = useState<string | null>(null);
   const [coverImage, setCoverImage] = useState("");
   const [coverMediaId, setCoverMediaId] = useState<number | null>(null);
   const [coverPickerOpen, setCoverPickerOpen] = useState(false);
@@ -94,6 +95,7 @@ export default function Home() {
         slug: a.slug, tags: joinList(a.tags), categories: joinList(a.categories),
       });
       setArticleId(a.id); setArticleStatus(a.status); setWpPostId(a.wpPostId ?? null);
+      setWpLink(a.wpLink ?? null);
       setCoverImage(a.coverImage ?? "");
     }).catch(() => {});
   }, []);
@@ -335,7 +337,7 @@ export default function Home() {
                   <button className="btn primary" onClick={submitForReview} disabled={saving || !hasContent}>Submit for review</button>
                 )}
                 {mayPublish && (
-                  <button className="btn primary" onClick={() => setPublishOpen(true)} disabled={!hasContent}>Publish to WordPress</button>
+                  <button className="btn primary" onClick={() => setPublishOpen(true)} disabled={!hasContent}>Publish</button>
                 )}
               </div>
               {authEnabled && !mayPublish && (
@@ -476,7 +478,7 @@ export default function Home() {
       )}
       {fixPreview && <FixPreviewModal preview={fixPreview} onApply={applyFix} onClose={() => setFixPreview(null)} />}
       {publishOpen && (
-        <PublishModal draft={draft} articleId={articleId} wpPostId={wpPostId} coverImage={coverImage} coverMediaId={coverMediaId} multiUser={authEnabled}
+        <PublishModal draft={draft} articleId={articleId} wpPostId={wpPostId} wpLink={wpLink} coverImage={coverImage} coverMediaId={coverMediaId} multiUser={authEnabled}
           onClose={() => setPublishOpen(false)}
           onDone={(msg, status, newWpPostId) => { setPublishOpen(false); if (status) setArticleStatus(status); if (newWpPostId) setWpPostId(newWpPostId); setBanner({ kind: "success", text: msg }); }} />
       )}
@@ -572,99 +574,6 @@ function CoverPicker({ content, onUpload, onPick, onClose }: {
 
           <div className="btn-row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
             <button className="btn" onClick={onClose}>Cancel</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PublishModal({ draft, articleId, wpPostId, coverImage, coverMediaId, multiUser, onClose, onDone }: {
-  draft: Draft; articleId: string | null; wpPostId: number | null;
-  coverImage: string; coverMediaId: number | null; multiUser: boolean;
-  onClose: () => void; onDone: (msg: string, status?: string, wpPostId?: number) => void;
-}) {
-  const [url, setUrl] = useState("");
-  const [username, setUsername] = useState("");
-  const [applicationPassword, setApplicationPassword] = useState("");
-  const [status, setStatus] = useState<"draft" | "publish">("draft");
-  const [pingIndexNow, setPingIndexNow] = useState(true);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [tested, setTested] = useState<string | null>(null);
-
-  async function test() {
-    setBusy(true); setError(null); setTested(null);
-    try {
-      const { ok, data } = await postJson("/api/wordpress/test", { url, username, applicationPassword });
-      if (!ok) setError(data.error);
-      else {
-        const b = data.bridge;
-        const note = b?.installed ? ` Bridge active${b.seoPlugin ? ` (${b.seoPlugin})` : ""}.` : " Bridge not detected (install it for SEO meta).";
-        setTested(`Connected as ${data.user.name}.${note}`);
-      }
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
-  }
-
-  async function publish() {
-    setBusy(true); setError(null);
-    try {
-      const body: Record<string, unknown> = {
-        title: draft.title, content: draft.content, metaDescription: draft.metaDescription,
-        focusKeyphrase: draft.focusKeyphrase, secondaryKeyphrases: splitList(draft.secondaryKeyphrases),
-        slug: draft.slug, tags: splitList(draft.tags), categories: splitList(draft.categories),
-        status, pingIndexNow, articleId, wpPostId: wpPostId ?? undefined,
-        coverImage: coverImage || undefined, coverMediaId: coverMediaId ?? undefined,
-      };
-      if (!multiUser) { body.url = url; body.username = username; body.applicationPassword = applicationPassword; }
-      const { ok, data } = await postJson("/api/wordpress/publish", body);
-      if (!ok) { setError(data.error); return; }
-      const idx = data.indexNow?.ok ? " Search engines pinged via IndexNow." : "";
-      const verb = data.updated ? "Updated" : status === "publish" ? "Published" : "Saved";
-      const imgs = data.imagesHosted ? ` ${data.imagesHosted} image(s) uploaded to media.` : "";
-      onDone(
-        status === "publish" ? `${verb}! ${data.post.link}.${idx}${imgs}` : `Saved as draft in WordPress (#${data.post.id}).${imgs}`,
-        status === "publish" ? "published" : undefined,
-        data.wpPostId,
-      );
-    } catch (e) { setError((e as Error).message); } finally { setBusy(false); }
-  }
-
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="card-header">Publish to WordPress<button className="modal-close" onClick={onClose} aria-label="Close">×</button></div>
-        <div className="card-body">
-          {multiUser ? (
-            <div className="banner info">Publishing to the shared company blog configured by your admin.</div>
-          ) : (
-            <div className="banner info">Uses an Application Password. Leave blank to use server env defaults. SEO meta needs the bridge plugin (see SETUP.md).</div>
-          )}
-          {error && <div className="banner error">{error}</div>}
-          {tested && <div className="banner success">{tested}</div>}
-          {!multiUser && (
-            <>
-              <div className="field" style={{ marginTop: 0 }}><label>Site URL</label><input type="text" value={url} placeholder="https://blog.example.com" onChange={(e) => setUrl(e.target.value)} /></div>
-              <div className="field"><label>Username</label><input type="text" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
-              <div className="field"><label>Application Password</label><PasswordInput value={applicationPassword} onChange={setApplicationPassword} placeholder="xxxx xxxx xxxx xxxx" autoComplete="off" /></div>
-            </>
-          )}
-          <div className="field" style={{ marginTop: multiUser ? 0 : 14 }}><label>Publish as</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as "draft" | "publish")}>
-              <option value="draft">Draft (review in WP first)</option>
-              <option value="publish">Publish immediately</option>
-            </select>
-          </div>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-            <input type="checkbox" checked={pingIndexNow} onChange={(e) => setPingIndexNow(e.target.checked)} style={{ width: "auto" }} />
-            Notify search engines via IndexNow when published
-          </label>
-          <div className="btn-row" style={{ marginTop: 16, justifyContent: "space-between" }}>
-            {!multiUser ? <button className="btn" onClick={test} disabled={busy}>{busy && <span className="spinner" />} Test connection</button> : <span />}
-            <div className="btn-row">
-              <button className="btn" onClick={onClose}>Cancel</button>
-              <button className="btn primary" onClick={publish} disabled={busy}>{busy && <span className="spinner" />} {status === "publish" ? "Publish" : "Save draft"}</button>
-            </div>
           </div>
         </div>
       </div>
