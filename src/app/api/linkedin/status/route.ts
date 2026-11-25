@@ -9,19 +9,28 @@ export async function GET(req: Request) {
   if (!resolved) {
     return NextResponse.json({ configured: isConfigured(), connected: false });
   }
-  try {
-    // Confirm the token still works and get the member URN.
-    const user = resolved.sub
-      ? { sub: resolved.sub, name: resolved.name ?? undefined }
-      : await getUserInfo(resolved.accessToken);
-    return NextResponse.json({
-      configured: true,
-      connected: true,
-      name: user.name ?? resolved.name ?? null,
-      memberUrn: `urn:li:person:${user.sub}`,
-      orgId: resolved.orgId,
-    });
-  } catch {
-    return NextResponse.json({ configured: isConfigured(), connected: false });
+
+  // A valid token means connected. Member identity is only needed for
+  // personal-profile posting; a company-page-only app (no openid/profile
+  // scope) still connects and can post to its organization.
+  let name = resolved.name ?? null;
+  let memberUrn = resolved.sub ? `urn:li:person:${resolved.sub}` : null;
+  if (!resolved.sub) {
+    try {
+      const user = await getUserInfo(resolved.accessToken);
+      name = user.name ?? name;
+      memberUrn = `urn:li:person:${user.sub}`;
+    } catch {
+      /* org-only app: no identity scope — fine. */
+    }
   }
+
+  return NextResponse.json({
+    configured: true,
+    connected: true,
+    name,
+    memberUrn,
+    orgId: resolved.orgId,
+    canPostOrg: Boolean(resolved.orgId),
+  });
 }
